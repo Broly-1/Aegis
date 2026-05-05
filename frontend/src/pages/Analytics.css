@@ -1,0 +1,126 @@
+/* ============================
+   Analytics Page Styles
+   ============================ */
+
+/* Report Grid */
+.report-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 32px;
+  align-items: start;
+}
+
+.report-metrics {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.report-row {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.report-metric-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.report-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.report-bar-group {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.report-bar-label {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  width: 40px;
+  flex-shrink: 0;
+}
+
+.report-bar-track {
+  flex: 1;
+  height: 10px;
+  background: var(--bg-input);
+  border-radius: 5px;
+  overflow: hidden;
+}
+
+.report-bar-fill {
+  height: 100%;
+  border-radius: 5px;
+  transition: width 1s ease;
+}
+
+.report-bar-fill.safe {
+  background: var(--gradient-success);
+}
+
+.report-bar-fill.fraud {
+  background: var(--gradient-danger);
+}
+
+.report-bar-value {
+  font-size: 0.78rem;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  color: var(--text-secondary);
+  min-width: 45px;
+  text-align: right;
+}
+
+/* Summary Stats */
+.report-summary {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.summary-stat {
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  text-align: center;
+}
+
+.summary-stat.highlight {
+  border-color: var(--accent-primary);
+  background: var(--accent-primary-dim);
+}
+
+.summary-stat-value {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  letter-spacing: -0.02em;
+}
+
+.summary-stat.highlight .summary-stat-value {
+  color: var(--accent-primary-light);
+}
+
+.summary-stat-label {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .report-grid {
+    grid-template-columns: 1fr;
+  }
+}

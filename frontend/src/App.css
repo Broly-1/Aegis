@@ -1,0 +1,14 @@
+/* ============================
+   App Layout Styles
+   ============================ */
+
+.app-layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.main-content {
+  margin-left: 240px;
+  flex: 1;
+  min-height: 100vh;
+}

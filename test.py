@@ -1,34 +1,45 @@
 import pandas as pd
-from sklearn.model_selection import train_test_split
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import classification_report
+import os
 
-print("Loading data for baseline ML model...")
-df = pd.read_csv('MMORPG_Trades_Cleaned.csv')
+# Configuration
+INPUT_FILE = 'archive (1)/HI-Medium_Trans.csv'
+OUTPUT_FILE = 'MMORPG_Medium_Cleaned.csv'
+CHUNK_SIZE = 1000000  # Process 1 million rows at a time
 
-# 1. Prepare Tabular Features
-# Standard ML models cannot read Player IDs or network structures easily.
-# We will only give it the transaction amount and the trade type to prove that 
-# "Amount alone is not enough" to detect complex fraud.
-X = pd.get_dummies(df[['In_Game_Currency_Value', 'Trade_Type']]) 
-y = df['Is_Fraudulent_Trade']
+# Column mapping (Same as before)
+column_mapping = {
+    'Timestamp': 'Trade_Time',
+    'Account': 'Sender_Player_ID',
+    'Account.1': 'Receiver_Player_ID',
+    'Amount Paid': 'In_Game_Currency_Value',
+    'Payment Format': 'Trade_Type',
+    'Is Laundering': 'Is_Fraudulent_Trade'
+}
 
-# 2. Split the data into Training and Testing sets
-X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+columns_to_keep = list(column_mapping.keys())
 
-# 3. Train a standard Random Forest Classifier
-print("Training standard Random Forest Classifier...")
-rf_model = RandomForestClassifier(
-    n_estimators=100, 
-    min_samples_leaf=1, 
-    max_features='sqrt', 
-    random_state=42
-)
-rf_model.fit(X_train, y_train)
+print(f"Starting Big Data Clean: {INPUT_FILE}")
 
-# 4. Make predictions and evaluate
-y_pred = rf_model.predict(X_test)
+# Initialize the CSV file with headers only
+first_chunk = True
 
-print("\n--- Baseline Model Performance (Standard ML) ---")
-# We use classification_report to get Precision, Recall, and F1-Score as required by your rubric
-print(classification_report(y_test, y_pred, zero_division=0))
+for chunk in pd.read_csv(INPUT_FILE, chunksize=CHUNK_SIZE, usecols=columns_to_keep):
+    # 1. Rename columns
+    chunk = chunk.rename(columns=column_mapping)
+    
+    # 2. Drop rows with missing Player IDs immediately
+    chunk = chunk.dropna(subset=['Sender_Player_ID', 'Receiver_Player_ID'])
+    
+    # 3. Optimization: Convert Player IDs to Strings (if not already) 
+    # and trade times to datetime if you plan on doing temporal analysis later
+    
+    # 4. Save/Append to the new cleaned file
+    if first_chunk:
+        chunk.to_csv(OUTPUT_FILE, index=False, mode='w')
+        first_chunk = False
+    else:
+        chunk.to_csv(OUTPUT_FILE, index=False, mode='a', header=False)
+    
+    print(f"Processed {CHUNK_SIZE} rows...")
+
+print(f"\nDone! Cleaned dataset saved as {OUTPUT_FILE}")

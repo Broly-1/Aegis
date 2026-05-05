@@ -1,0 +1,301 @@
+{
+  "summary": {
+    "total_players": 1309364,
+    "total_transactions": 2000000,
+    "total_flagged": 916,
+    "total_safe": 1308448,
+    "total_ground_truth_fraud": 825,
+    "detection_rate": 22.79,
+    "precision": 20.52,
+    "f1_score": 21.6,
+    "accuracy": 99.9
+  },
+  "trade_types": {
+    "Reinvestment": 1152931,
+    "Cheque": 326369,
+    "Credit Card": 238772,
+    "ACH": 122346,
+    "Cash": 84959,
+    "Bitcoin": 40474,
+    "Wire": 34149
+  },
+  "fraud_by_trade_type": {
+    "ACH": 526,
+    "Cheque": 50,
+    "Credit Card": 28,
+    "Cash": 15,
+    "Bitcoin": 4
+  },
+  "value_distribution": {
+    "< 1K": 848439,
+    "1K - 10K": 431184,
+    "10K - 100K": 366244,
+    "100K - 1M": 219176,
+    "1M - 10M": 95114,
+    "> 10M": 39843
+  },
+  "risk_distribution": {
+    "Very Low (0-0.2)": 785789,
+    "Low (0.2-0.4)": 271963,
+    "Medium (0.4-0.6)": 203002,
+    "High (0.6-0.8)": 45862,
+    "Critical (0.8-1.0)": 2748
+  },
+  "monthly_trends": [
+    {
+      "month": "2022-09",
+      "transactions": 2000000,
+      "volume": 27355436477800.46,
+      "fraud_count": 623
+    }
+  ],
+  "top_flagged_players": [
+    {
+      "id": "8000F48D0",
+      "risk_score": 0.9998,
+      "predicted_label": "Fraudulent",
+      "ground_truth": "Fraudulent",
+      "total_sent": 124809335.58,
+      "total_received": 98728856.18,
+      "trade_count_out": 37,
+      "trade_count_in": 14,
+      "ratio": 1.2642
+    },
+    {
+      "id": "849AA9EB0",
+      "risk_score": 0.9997,
+      "predicted_label": "Fraudulent",
+      "ground_truth": "Safe",
+      "total_sent": 1436109.08,
+      "total_received": 2533.16,
+      "trade_count_out": 8,
+      "trade_count_in": 2,
+      "ratio": 566.7002
+    },
+    {
+      "id": "8011A42C0",
+      "risk_score": 0.9996,
+      "predicted_label": "Fraudulent",
+      "ground_truth": "Fraudulent",
+      "total_sent": 5042.03,
+      "total_received": 3572.78,
+      "trade_count_out": 3,
+      "trade_count_in": 1,
+      "ratio": 1.4108
+    },
+    {
+      "id": "80088D3A0",
+      "risk_score": 0.9995,
+      "predicted_label": "Fraudulent",
+      "ground_truth": "Fraudulent",
+      "total_sent": 7071.87,
+      "total_received": 8142.18,
+      "trade_count_out": 1,
+      "trade_count_in": 1,
+      "ratio": 0.8684
+    },
+    {
+      "id": "80083AF70",
+      "risk_score": 0.9995,
+      "predicted_label": "Fraudulent",
+      "ground_truth": "Fraudulent",
+      "total_sent": 16568.39,
+      "total_received": 15475.16,
+      "trade_count_out": 2,
+      "trade_count_in": 1,
+      "ratio": 1.0706
+    },
+    {
+      "id": "800A97810",
+      "risk_score": 0.9995,
+      "predicted_label": "Fraudulent",
+      "ground_truth": "Fraudulent",
+      "total_sent": 6409.44,
+      "total_received": 4446.28,
+      "trade_count_out": 4,
+      "trade_count_in": 1,
+      "ratio": 1.4412
+    },
+    {
+      "id": "80050D960",
+      "risk_score": 0.9995,
+      "predicted_label": "Fraudulent",
+      "ground_truth": "Fraudulent",
+      "total_sent": 1330.75,
+      "total_received": 1662.24,
+      "trade_count_out": 1,
+      "trade_count_in": 1,
+      "ratio": 0.8001
+    },
+    {
+      "id": "849AD30C0",
+      "risk_score": 0.9994,
+      "predicted_label": "Fraudulent",
+      "ground_truth": "Safe",
+      "total_sent": 48.16,
+      "total_received": 838.16,
+      "trade_count_out": 1,
+      "trade_count_in": 3,
+      "ratio": 0.0574
+    },
+    {
+      "id": "849D7B110",
+      "risk_score": 0.9994,
+      "predicted_label": "Fraudulent",
+      "ground_truth": "Safe",
+      "total_sent": 0.0,
+      "total_received": 62662.26,
+      "trade_count_out": 0,
+      "trade_count_in": 2,
+      "ratio": 0.0
+    },
+    {
+      "id": "80028EF80",
+      "risk_score": 0.9993,
+      "predicted_label": "Fraudulent",
+      "ground_truth": "Fraudulent",
+      "total_sent": 10103.79,
+      "total_received": 10456.98,
+      "trade_count_out": 2,
+      "trade_count_in": 2,
+      "ratio": 0.9661
+    },
+    {
+      "id": "8003BA710",
+      "risk_score": 0.9993,
+      "predicted_label": "Fraudulent",
+      "ground_truth": "Fraudulent",
+      "total_sent": 12851.61,
+      "total_received": 14368.23,
+      "trade_count_out": 2,
+      "trade_count_in": 2,
+      "ratio": 0.8944
+    },
+    {
+      "id": "849BEBAF0",
+      "risk_score": 0.9992,
+      "predicted_label": "Fraudulent",
+      "ground_truth": "Safe",
+      "total_sent": 3153850.04,
+      "total_received": 3726977.32,
+      "trade_count_out": 3,
+      "trade_count_in": 5,
+      "ratio": 0.8462
+    },
+    {
+      "id": "84A46BE60",
+      "risk_score": 0.9992,
+      "predicted_label": "Fraudulent",
+      "ground_truth": "Safe",
+      "total_sent": 973.76,
+      "total_received": 205989.32,
+      "trade_count_out": 3,
+      "trade_count_in": 1,
+      "ratio": 0.0047
+    },
+    {
+      "id": "80106AA00",
+      "risk_score": 0.999,
+      "predicted_label": "Fraudulent",
+      "ground_truth": "Fraudulent",
+      "total_sent": 164115.2,
+      "total_received": 112092.16,
+      "trade_count_out": 6,
+      "trade_count_in": 3,
+      "ratio": 1.4641
+    },
+    {
+      "id": "80C104C20",
+      "risk_score": 0.999,
+      "predicted_label": "Fraudulent",
+      "ground_truth": "Fraudulent",
+      "total_sent": 1598257754.93,
+      "total_received": 127117968.24,
+      "trade_count_out": 23,
+      "trade_count_in": 11,
+      "ratio": 12.573
+    },
+    {
+      "id": "800C3D770",
+      "risk_score": 0.9985,
+      "predicted_label": "Fraudulent",
+      "ground_truth": "Fraudulent",
+      "total_sent": 9.54,
+      "total_received": 24863398.56,
+      "trade_count_out": 1,
+      "trade_count_in": 17,
+      "ratio": 0.0
+    },
+    {
+      "id": "8122A7750",
+      "risk_score": 0.9983,
+      "predicted_label": "Fraudulent",
+      "ground_truth": "Fraudulent",
+      "total_sent": 2576407.88,
+      "total_received": 11132.66,
+      "trade_count_out": 6,
+      "trade_count_in": 2,
+      "ratio": 231.4071
+    },
+    {
+      "id": "80651B5B0",
+      "risk_score": 0.9981,
+      "predicted_label": "Fraudulent",
+      "ground_truth": "Fraudulent",
+      "total_sent": 2124568.31,
+      "total_received": 162258.63,
+      "trade_count_out": 31,
+      "trade_count_in": 22,
+      "ratio": 13.0936
+    },
+    {
+      "id": "8133BA3C0",
+      "risk_score": 0.998,
+      "predicted_label": "Fraudulent",
+      "ground_truth": "Fraudulent",
+      "total_sent": 10032.36,
+      "total_received": 17603.49,
+      "trade_count_out": 2,
+      "trade_count_in": 2,
+      "ratio": 0.5699
+    },
+    {
+      "id": "80772B2D0",
+      "risk_score": 0.9979,
+      "predicted_label": "Fraudulent",
+      "ground_truth": "Fraudulent",
+      "total_sent": 75573.47,
+      "total_received": 5536.71,
+      "trade_count_out": 4,
+      "trade_count_in": 1,
+      "ratio": 13.6471
+    }
+  ],
+  "classification_report": {
+    "Safe": {
+      "precision": 0.9995131636870552,
+      "recall": 0.999443654335102,
+      "f1-score": 0.9994784078025607,
+      "support": 1308539.0
+    },
+    "Fraudulent": {
+      "precision": 0.2052401746724891,
+      "recall": 0.22787878787878788,
+      "f1-score": 0.21596783457782884,
+      "support": 825.0
+    },
+    "accuracy": 0.9989575091418429,
+    "macro avg": {
+      "precision": 0.6023766691797722,
+      "recall": 0.6136612211069449,
+      "f1-score": 0.6077231211901948,
+      "support": 1309364.0
+    },
+    "weighted avg": {
+      "precision": 0.9990127106305048,
+      "recall": 0.9989575091418429,
+      "f1-score": 0.9989847358955047,
+      "support": 1309364.0
+    }
+  }
+}

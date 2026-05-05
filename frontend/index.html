@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="GNN-powered fraud detection dashboard for MMORPG transactions. Real-time player risk scoring using GraphSAGE neural network." />
+    <title>FraudGuard - GNN Fraud Detection Dashboard</title>
+    <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;900&amp;family=JetBrains+Mono:wght@500;700&amp;display=swap" rel="stylesheet"/>
+    <script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-dim": "#0e1416",
+                      "surface-variant": "#2f3638",
+                      "secondary-container": "#3131c0",
+                      "surface-container-high": "#242b2d",
+                      "tertiary-container": "#3dd99e",
+                      "surface-container-low": "#161d1e",
+                      "secondary": "#c0c1ff",
+                      "surface-container-lowest": "#090f11",
+                      "on-tertiary-fixed-variant": "#005137",
+                      "on-error": "#690005",
+                      "on-tertiary-fixed": "#002114",
+                      "surface-tint": "#2fd9f4",
+                      "background": "#0e1416",
+                      "outline": "#859397",
+                      "surface-container-highest": "#2f3638",
+                      "on-primary": "#00363e",
+                      "on-background": "#dde4e5",
+                      "primary": "#8aebff",
+                      "inverse-on-surface": "#2b3233",
+                      "primary-container": "#22d3ee",
+                      "tertiary-fixed": "#68fcbf",
+                      "tertiary-fixed-dim": "#45dfa4",
+                      "error": "#ffb4ab",
+                      "on-secondary": "#1000a9",
+                      "surface-bright": "#343a3c",
+                      "tertiary": "#61f6b9",
+                      "surface": "#0e1416"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.125rem",
+                      "lg": "0.25rem",
+                      "xl": "0.5rem",
+                      "full": "0.75rem"
+              },
+              "spacing": {
+                      "lg": "24px",
+                      "gutter": "20px",
+                      "xs": "4px",
+                      "md": "16px",
+                      "xl": "40px",
+                      "margin": "32px",
+                      "sm": "8px"
+              }
+            }
+          }
+        }
+      </script>
+      <style>
+        .glass-panel {
+            background-color: rgba(47, 54, 56, 0.4);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+        .glass-panel-elevated {
+            background-color: rgba(47, 54, 56, 0.6);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+        }
+        .glow-cyan { text-shadow: 0 0 10px rgba(34, 211, 238, 0.5); }
+        .glow-rose { text-shadow: 0 0 10px rgba(244, 63, 94, 0.5); }
+        .glow-emerald { text-shadow: 0 0 10px rgba(16, 185, 129, 0.5); }
+        
+        /* Gradient Borders for Stat Cards */
+        .stat-card-cyan::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, rgba(34, 211, 238, 0.8), transparent); }
+        .stat-card-emerald::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, rgba(16, 185, 129, 0.8), transparent); }
+        .stat-card-rose::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, rgba(244, 63, 94, 0.8), transparent); }
+        .stat-card-indigo::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, rgba(99, 102, 241, 0.8), transparent); }
+      </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
