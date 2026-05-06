@@ -3,7 +3,7 @@ import { Network, Maximize2 } from 'lucide-react';
 import ForceGraph2D from 'react-force-graph-2d';
 import './GraphView.css';
 
-const API = 'http://localhost:8000/api';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 export default function GraphView() {
   const [graphData, setGraphData] = useState(null);
@@ -96,7 +96,7 @@ export default function GraphView() {
         </div>
       </div>
 
-      <div className="graph-container animate-fade-in-delay-1" ref={containerRef}>
+      <div className="graph-container glass-panel animate-fade-in-delay-1" ref={containerRef}>
         {/* Controls */}
         <div className="graph-controls">
           <button className="graph-ctrl-btn" onClick={resetView} title="Reset View">

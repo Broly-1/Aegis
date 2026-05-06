@@ -92,7 +92,7 @@ def startup_load():
     
     # Load PyTorch model
     try:
-        gnn_model = HyperEliteSAGE(in_channels=5, hidden_channels=128, out_channels=2)
+        gnn_model = HyperEliteSAGE(in_channels=9, hidden_channels=128, out_channels=2)
         model_path = os.path.join(os.path.dirname(DATA_DIR), 'hyper_elite_medium_model.pth')
         gnn_model.load_state_dict(torch.load(model_path, map_location='cpu', weights_only=True))
         gnn_model.eval()

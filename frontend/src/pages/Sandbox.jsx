@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
-import { Play, UserPlus, ShieldAlert, ShieldCheck, Zap, Activity } from 'lucide-react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { ShieldAlert, ShieldCheck, Zap, Activity } from 'lucide-react';
+import ForceGraph2D from 'react-force-graph-2d';
 import './Sandbox.css';
 
-const API = 'http://localhost:8000/api';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 const DEFAULT_TARGET = {
   sent: 1000,
@@ -29,33 +30,52 @@ export default function Sandbox() {
   const [target, setTarget] = useState(DEFAULT_TARGET);
   const [neighbors, setNeighbors] = useState([]);
   const [riskScore, setRiskScore] = useState(0);
-  const [loading, setLoading] = useState(false);
-
-  const simulate = async (currentTarget, currentNeighbors) => {
-    setLoading(true);
-    try {
-      const res = await fetch(`${API}/simulate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          target: currentTarget,
-          neighbors: currentNeighbors
-        })
-      });
-      const data = await res.json();
-      if (data.risk_score !== undefined) {
-        setRiskScore(data.risk_score);
-      }
-    } catch (err) {
-      console.error(err);
-    }
-    setLoading(false);
-  };
+  const graphRef = useRef(null);
+  const graphContainerRef = useRef(null);
+  const [graphSize, setGraphSize] = useState({ width: 640, height: 360 });
 
   // Run simulation on initial load and whenever network changes
   useEffect(() => {
-    simulate(target, neighbors);
+    let cancelled = false;
+
+    async function runSimulation() {
+      try {
+        const res = await fetch(`${API}/simulate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ target, neighbors })
+        });
+        const data = await res.json();
+        if (!cancelled && data.risk_score !== undefined) {
+          setRiskScore(data.risk_score);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    runSimulation();
+    return () => { cancelled = true; };
   }, [target, neighbors]);
+
+  useEffect(() => {
+    const handleResize = () => {
+      if (!graphContainerRef.current) return;
+      const width = Math.max(320, graphContainerRef.current.clientWidth);
+      const height = Math.max(260, graphContainerRef.current.clientHeight);
+      setGraphSize({ width, height });
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (graphRef.current) {
+      graphRef.current.d3ReheatSimulation();
+    }
+  }, [neighbors.length]);
 
   const updateTarget = (field, value) => {
     setTarget(prev => ({ ...prev, [field]: Number(value) }));
@@ -74,6 +94,61 @@ export default function Sandbox() {
   const isMediumRisk = riskScore > 0.4;
   
   const scoreColor = isHighRisk ? '#f87171' : isMediumRisk ? '#fbbf24' : '#34d399';
+
+  const graphData = useMemo(() => {
+    const nodes = [{ id: 'target', label: 'TARGET', type: 'target' }];
+    const links = [];
+
+    neighbors.forEach((neighbor, index) => {
+      const isHacker = neighbor.sent > 1000000;
+      const id = `n-${index}`;
+      nodes.push({
+        id,
+        label: isHacker ? 'RISK' : 'SAFE',
+        type: isHacker ? 'risk' : 'safe'
+      });
+      links.push({
+        source: 'target',
+        target: id,
+        type: isHacker ? 'risk' : 'safe'
+      });
+    });
+
+    return { nodes, links };
+  }, [neighbors]);
+
+  const drawNode = useCallback((node, ctx, globalScale) => {
+    const isTarget = node.type === 'target';
+    const isRisk = node.type === 'risk';
+    const strokeColor = isTarget ? scoreColor : isRisk ? '#ffb4ab' : '#61f6b9';
+    const fillColor = isTarget ? 'rgba(14, 20, 22, 0.9)' : 'rgba(18, 24, 27, 0.85)';
+    const radius = isTarget ? 22 : 12;
+
+    ctx.save();
+    if (isTarget) {
+      ctx.shadowColor = strokeColor;
+      ctx.shadowBlur = 18;
+    }
+
+    ctx.beginPath();
+    ctx.arc(node.x, node.y, radius, 0, 2 * Math.PI);
+    ctx.fillStyle = fillColor;
+    ctx.fill();
+    ctx.lineWidth = isTarget ? 3 : 2;
+    ctx.strokeStyle = strokeColor;
+    ctx.stroke();
+    ctx.restore();
+
+    const showLabel = isTarget || globalScale > 1.1;
+    if (showLabel) {
+      const fontSize = (isTarget ? 10 : 8) / globalScale;
+      ctx.font = `${fontSize}px Sans-Serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillStyle = strokeColor;
+      ctx.fillText(node.label, node.x, node.y);
+    }
+  }, [scoreColor]);
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-surface-dim">
@@ -177,7 +252,7 @@ export default function Sandbox() {
         <section className="flex-1 flex flex-col relative p-8 gap-8 overflow-y-auto">
           {/* Risk Gauge Card */}
           <div 
-            className="glass-strong rounded-xl p-8 flex flex-col items-center justify-center relative z-10 border border-white/10 glow-red shrink-0 min-h-[250px]"
+            className="glass-panel-elevated rounded-xl p-8 flex flex-col items-center justify-center relative z-10 glow-red shrink-0 min-h-[250px]"
             style={{ borderColor: scoreColor }}
           >
             <div className="absolute top-4 left-4 flex items-center gap-2">
@@ -215,7 +290,7 @@ export default function Sandbox() {
           </div>
 
           {/* Message Passing Visualization */}
-          <div className="flex-1 glass rounded-xl flex flex-col relative z-10 border border-white/5 overflow-hidden min-h-[400px]">
+          <div className="flex-1 glass-panel rounded-xl flex flex-col relative z-10 overflow-hidden min-h-[400px]">
             <div className="p-4 border-b border-outline-variant/20 flex justify-between items-center bg-surface-dim/50 backdrop-blur-md absolute top-0 left-0 w-full z-20">
               <h3 className="font-h2 text-sm text-on-surface flex items-center gap-2">
                 <Activity size={18} className="text-primary" />
@@ -232,43 +307,42 @@ export default function Sandbox() {
             </div>
 
             <div className="flex-1 relative w-full h-full bg-[radial-gradient(circle_at_center,_rgba(255,255,255,0.02)_1px,_transparent_1px)] bg-[size:20px_20px] flex items-center justify-center pt-16">
-              <div className="topology-view">
-                <div className="target-node-wrapper">
-                  <div 
-                    className="target-node" 
-                    style={{ 
-                      borderColor: scoreColor, 
-                      boxShadow: `0 0 30px ${scoreColor}60`,
-                      background: 'rgba(14, 20, 22, 0.8)'
-                    }}
-                  >
-                    TARGET
-                    <div className="absolute inset-0 rounded-full border border-primary/50 animate-ping opacity-20"></div>
-                  </div>
-                </div>
-                
-                <div className="neighbors-wrapper">
-                  {neighbors.map((n, i) => {
-                    const isHacker = n.sent > 1000000;
-                    return (
-                      <div 
-                        key={i} 
-                        className={`neighbor-node ${isHacker ? 'hacker-node' : 'safe-node'}`}
-                        style={{
-                          background: isHacker ? 'rgba(255, 180, 171, 0.1)' : 'rgba(97, 246, 185, 0.1)',
-                          borderColor: isHacker ? '#ffb4ab' : '#61f6b9'
-                        }}
-                      >
-                        {isHacker ? 'RISK' : 'SAFE'}
-                      </div>
-                    );
-                  })}
-                </div>
-                
+              <div className="sandbox-graph" ref={graphContainerRef}>
+                <ForceGraph2D
+                  ref={graphRef}
+                  width={graphSize.width}
+                  height={graphSize.height}
+                  graphData={graphData}
+                  nodeCanvasObject={drawNode}
+                  nodeRelSize={4}
+                  linkColor={(link) =>
+                    link.type === 'risk'
+                      ? 'rgba(255, 180, 171, 0.5)'
+                      : 'rgba(97, 246, 185, 0.4)'
+                  }
+                  linkWidth={(link) => (link.type === 'risk' ? 1.4 : 1)}
+                  linkDirectionalParticles={(link) => (link.type === 'risk' ? 2 : 1)}
+                  linkDirectionalParticleSpeed={0.004}
+                  linkDirectionalParticleWidth={2}
+                  backgroundColor="transparent"
+                  cooldownTicks={180}
+                  d3AlphaDecay={0.03}
+                  d3VelocityDecay={0.18}
+                  onEngineStop={() => {
+                    if (graphRef.current) {
+                      graphRef.current.zoomToFit(260, 40);
+                    }
+                  }}
+                />
+
                 {neighbors.length === 0 && (
                   <div className="empty-topology text-outline text-xs font-data-mono">
                     Node is isolated. Calculating baseline features...
                   </div>
+                )}
+
+                {neighbors.length > 0 && (
+                  <div className="sandbox-graph-hint">Drag nodes to rearrange</div>
                 )}
               </div>
             </div>

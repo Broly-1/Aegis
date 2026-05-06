@@ -1,7 +1,13 @@
 # Ignore dataset files
 *.csv
-*.txt
 archive (1)/
+
+# Allow essential files
+!requirements.txt
+!threshold.txt
+
+# Large model and data files (optional if using GitHub as storage, but good to know)
+# hyper_elite_medium_model.pth
 
 # Python environment and cache
 __pycache__/

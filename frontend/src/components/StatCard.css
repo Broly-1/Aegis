@@ -3,38 +3,42 @@
    ============================ */
 
 .stat-card {
-  background: var(--gradient-card);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  padding: 22px 24px;
   position: relative;
   overflow: hidden;
-  animation: fadeIn 0.5s ease-out forwards;
-  opacity: 0;
+  padding: 22px 24px;
+  border-radius: 14px;
+  animation: surfaceRise 520ms ease both;
   transition: transform var(--transition-normal), box-shadow var(--transition-normal);
 }
 
 .stat-card:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-lg);
+  transform: translateY(-3px);
+  box-shadow: 0 22px 48px rgba(0, 0, 0, 0.28);
 }
 
-/* Glow overlay */
-.stat-card::before {
+.stat-card-accent {
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card-accent::before {
   content: '';
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  height: 1px;
-  opacity: 0.6;
+  height: 2px;
+  opacity: 0.75;
 }
 
-.stat-card-primary::before { background: var(--gradient-primary); }
-.stat-card-cyan::before { background: linear-gradient(90deg, var(--accent-cyan), transparent); }
-.stat-card-green::before { background: linear-gradient(90deg, var(--accent-green), transparent); }
-.stat-card-red::before { background: linear-gradient(90deg, var(--accent-red), transparent); }
-.stat-card-amber::before { background: linear-gradient(90deg, var(--accent-amber), transparent); }
+.stat-card-accent.stat-card-primary::before { background: var(--gradient-primary); }
+.stat-card-accent.stat-card-cyan::before { background: linear-gradient(90deg, var(--accent-cyan), transparent); }
+.stat-card-accent.stat-card-green::before { background: linear-gradient(90deg, var(--accent-green), transparent); }
+.stat-card-accent.stat-card-red::before { background: linear-gradient(90deg, var(--accent-red), transparent); }
+.stat-card-accent.stat-card-amber::before { background: linear-gradient(90deg, var(--accent-amber), transparent); }
+.stat-card-accent.stat-card-emerald::before { background: linear-gradient(90deg, var(--accent-green), transparent); }
+.stat-card-accent.stat-card-rose::before { background: linear-gradient(90deg, var(--accent-rose), transparent); }
+.stat-card-accent.stat-card-indigo::before { background: linear-gradient(90deg, var(--accent-violet), transparent); }
 
 .stat-card-header {
   display: flex;
@@ -72,6 +76,18 @@
 .stat-card-amber .stat-card-icon {
   background: var(--accent-amber-dim);
   color: var(--accent-amber);
+}
+.stat-card-emerald .stat-card-icon {
+  background: rgba(97, 246, 185, 0.16);
+  color: var(--accent-green);
+}
+.stat-card-rose .stat-card-icon {
+  background: rgba(255, 180, 171, 0.18);
+  color: var(--accent-rose);
+}
+.stat-card-indigo .stat-card-icon {
+  background: rgba(192, 193, 255, 0.18);
+  color: var(--accent-violet);
 }
 
 .stat-card-label {

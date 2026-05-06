@@ -11,6 +11,11 @@ export default function App() {
   return (
     <BrowserRouter>
       <div className="app-layout">
+        <div className="animated-background" aria-hidden="true">
+          <div className="background-grid" />
+          <div className="background-sweep" />
+          <div className="background-streams" />
+        </div>
         <Sidebar />
         <main className="main-content">
           <Routes>

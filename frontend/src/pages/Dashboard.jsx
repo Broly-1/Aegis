@@ -1,19 +1,9 @@
 import { useState, useEffect } from 'react';
-import {
-  Users, ShieldAlert, ShieldCheck, Activity,
-  Target, Percent, TrendingUp, Zap
-} from 'lucide-react';
-import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, AreaChart, Area, CartesianGrid,
-  RadarChart, Radar, PolarGrid, PolarAngleAxis, PolarRadiusAxis
-} from 'recharts';
-import StatCard from '../components/StatCard';
+import { ShieldAlert } from 'lucide-react';
 import './Dashboard.css';
 
-const API = 'http://localhost:8000/api';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
-const CHART_COLORS = ['#6366f1', '#22d3ee', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#fb7185'];
 const PIE_COLORS = ['#6366f1', '#22d3ee', '#34d399', '#fbbf24', '#f87171'];
 
 function formatNumber(n) {
@@ -26,24 +16,8 @@ function formatCurrency(n) {
   if (n >= 1_000_000_000_000) return '$' + (n / 1_000_000_000_000).toFixed(1) + 'T';
   if (n >= 1_000_000_000) return '$' + (n / 1_000_000_000).toFixed(1) + 'B';
   if (n >= 1_000_000) return '$' + (n / 1_000_000).toFixed(1) + 'M';
-  return '$' + n?.toLocaleString?.() ?? n;
+  return n == null ? '$0' : '$' + n.toLocaleString();
 }
-
-const CustomTooltip = ({ active, payload, label }) => {
-  if (active && payload && payload.length) {
-    return (
-      <div className="chart-tooltip">
-        <p className="chart-tooltip-label">{label}</p>
-        {payload.map((p, i) => (
-          <p key={i} style={{ color: p.color }}>
-            {p.name}: {typeof p.value === 'number' ? p.value.toLocaleString() : p.value}
-          </p>
-        ))}
-      </div>
-    );
-  }
-  return null;
-};
 
 export default function Dashboard() {
   const [data, setData] = useState(null);
@@ -112,7 +86,7 @@ export default function Dashboard() {
 
 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-md">
 
-<div className="glass-panel rounded-lg p-md relative overflow-hidden stat-card-cyan hover:scale-[1.02] transition-transform duration-300">
+<div className="glass-panel rounded-lg p-md relative overflow-hidden stat-card-accent stat-card-cyan hover:scale-[1.02] transition-transform duration-300">
 <div className="flex justify-between items-start mb-4">
 <span className="font-label-caps text-label-caps text-on-surface-variant uppercase">Total Players</span>
 <span className="material-symbols-outlined text-outline">group</span>
@@ -123,7 +97,7 @@ export default function Dashboard() {
 </div>
 </div>
 
-<div className="glass-panel rounded-lg p-md relative overflow-hidden stat-card-emerald hover:scale-[1.02] transition-transform duration-300">
+<div className="glass-panel rounded-lg p-md relative overflow-hidden stat-card-accent stat-card-emerald hover:scale-[1.02] transition-transform duration-300">
 <div className="flex justify-between items-start mb-4">
 <span className="font-label-caps text-label-caps text-on-surface-variant uppercase">Detection Rate</span>
 <span className="material-symbols-outlined text-outline">radar</span>
@@ -134,7 +108,7 @@ export default function Dashboard() {
 </div>
 </div>
 
-<div className="glass-panel rounded-lg p-md relative overflow-hidden stat-card-rose hover:scale-[1.02] transition-transform duration-300">
+<div className="glass-panel rounded-lg p-md relative overflow-hidden stat-card-accent stat-card-rose hover:scale-[1.02] transition-transform duration-300">
 <div className="flex justify-between items-start mb-4">
 <span className="font-label-caps text-label-caps text-on-surface-variant uppercase">Active Threats</span>
 <span className="material-symbols-outlined text-outline">warning</span>
@@ -145,7 +119,7 @@ export default function Dashboard() {
 </div>
 </div>
 
-<div className="glass-panel rounded-lg p-md relative overflow-hidden stat-card-indigo hover:scale-[1.02] transition-transform duration-300">
+<div className="glass-panel rounded-lg p-md relative overflow-hidden stat-card-accent stat-card-indigo hover:scale-[1.02] transition-transform duration-300">
 <div className="flex justify-between items-start mb-4">
 <span className="font-label-caps text-label-caps text-on-surface-variant uppercase">Safe Trades</span>
 <span className="material-symbols-outlined text-outline">verified_user</span>
@@ -240,7 +214,7 @@ export default function Dashboard() {
 </thead>
 <tbody className="font-body-sm text-body-sm divide-y divide-white/5 text-white">
 
-{(data.top_flagged_players || []).slice(0, 5).map((p, i) => (
+{(data.top_flagged_players || []).slice(0, 5).map((p) => (
 <tr key={p.id} className="hover:bg-white/5 transition-colors">
 <td className="py-4 px-6 font-data-mono text-data-mono text-primary">{p.id}</td>
 <td className="py-4 px-6 font-data-mono text-data-mono text-error glow-rose">{(p.risk_score * 100).toFixed(1)}%</td>

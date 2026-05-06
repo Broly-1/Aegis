@@ -1,8 +1,8 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Search, Filter, ChevronLeft, ChevronRight, ShieldAlert, ShieldCheck, ArrowUpDown } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Search, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
 import './Players.css';
 
-const API = 'http://localhost:8000/api';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 function formatCurrency(n) {
   if (n >= 1_000_000_000) return '$' + (n / 1_000_000_000).toFixed(1) + 'B';
@@ -23,23 +23,25 @@ export default function Players() {
   const [sortOrder, setSortOrder] = useState('desc');
   const [searchInput, setSearchInput] = useState('');
 
-  const fetchPlayers = useCallback(() => {
-    setLoading(true);
+  useEffect(() => {
+    let cancelled = false;
     const params = new URLSearchParams({
       page, per_page: 50, search, filter, sort_by: sortBy, sort_order: sortOrder
     });
     fetch(`${API}/players?${params}`)
       .then(r => r.json())
       .then(d => {
+        if (cancelled) return;
         setPlayers(d.players || []);
         setTotalPages(d.total_pages || 1);
         setTotal(d.total || 0);
         setLoading(false);
       })
-      .catch(() => setLoading(false));
+      .catch(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
   }, [page, search, filter, sortBy, sortOrder]);
-
-  useEffect(() => { fetchPlayers(); }, [fetchPlayers]);
 
   const handleSearch = (e) => {
     e.preventDefault();
@@ -57,10 +59,10 @@ export default function Players() {
     setPage(1);
   };
 
-  const SortHeader = ({ field, children }) => (
+  const renderSortHeader = (field, label) => (
     <th onClick={() => toggleSort(field)} className="sortable-th">
       <div className="th-content">
-        {children}
+        {label}
         <ArrowUpDown size={12} className={sortBy === field ? 'sort-active' : ''} />
       </div>
     </th>
@@ -117,7 +119,7 @@ export default function Players() {
 
       {/* Table Container */}
       <div className="flex-1 overflow-auto px-8 py-6">
-        <div className="glass rounded-xl overflow-hidden border border-white/5 shadow-2xl">
+        <div className="glass-panel rounded-xl overflow-hidden shadow-2xl">
           {loading ? (
             <div className="p-12 flex flex-col items-center justify-center gap-4">
               <div className="w-12 h-12 border-4 border-primary/20 border-t-primary rounded-full animate-spin"></div>
@@ -129,11 +131,11 @@ export default function Players() {
                 <tr className="bg-surface-container-low/50 border-b border-white/5">
                   <th className="py-4 px-6 font-label-caps text-[10px] text-outline uppercase tracking-wider">#</th>
                   <th className="py-4 px-6 font-label-caps text-[10px] text-outline uppercase tracking-wider">Entity ID</th>
-                  <SortHeader field="risk_score">Risk Score</SortHeader>
+                  {renderSortHeader('risk_score', 'Risk Score')}
                   <th className="py-4 px-6 font-label-caps text-[10px] text-outline uppercase tracking-wider">Prediction</th>
                   <th className="py-4 px-6 font-label-caps text-[10px] text-outline uppercase tracking-wider">Truth</th>
-                  <SortHeader field="total_sent">Volume Out</SortHeader>
-                  <SortHeader field="total_received">Volume In</SortHeader>
+                  {renderSortHeader('total_sent', 'Volume Out')}
+                  {renderSortHeader('total_received', 'Volume In')}
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5 bg-surface-dim/30">

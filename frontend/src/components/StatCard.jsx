@@ -5,7 +5,7 @@ export default function StatCard({ icon: Icon, label, value, subValue, color = '
 
   return (
     <div
-      className={`stat-card ${colorClass}`}
+      className={`stat-card glass-panel stat-card-accent ${colorClass}`}
       style={{ animationDelay: `${delay}ms` }}
     >
       <div className="stat-card-header">

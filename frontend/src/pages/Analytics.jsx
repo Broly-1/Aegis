@@ -4,12 +4,11 @@ import {
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, CartesianGrid, LineChart, Line,
-  AreaChart, Area, Legend
+  PieChart, Pie, Cell, CartesianGrid, AreaChart, Area, Legend
 } from 'recharts';
 import './Analytics.css';
 
-const API = 'http://localhost:8000/api';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
 
 const COLORS = ['#6366f1', '#22d3ee', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#fb7185'];
 
@@ -69,11 +68,6 @@ export default function Analytics() {
     name, value
   }));
 
-  const riskData = Object.entries(data.risk_distribution || {}).map(([name, value]) => ({
-    name: name.replace(/\(.*\)/, '').trim(),
-    value,
-  }));
-
   const monthlyData = data.monthly_trends || [];
 
   // Classification report data
@@ -96,16 +90,6 @@ export default function Analytics() {
     },
   ];
 
-  // Fraud rate by type
-  const fraudRateData = tradeTypeData
-    .filter(d => d.all > 0)
-    .map(d => ({
-      name: d.name,
-      rate: ((d.fraud / d.all) * 100).toFixed(4),
-      fraudCount: d.fraud,
-    }))
-    .sort((a, b) => b.rate - a.rate);
-
   return (
     <div className="flex flex-col h-full bg-surface-dim overflow-y-auto">
       {/* Page Header */}
@@ -119,7 +103,7 @@ export default function Analytics() {
       <div className="p-8 space-y-8">
         {/* Top Row: Metrics & Distribution */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="glass rounded-xl p-6 border border-white/5 flex flex-col gap-6">
+          <div className="glass-panel rounded-xl p-6 flex flex-col gap-6">
             <h3 className="font-h2 text-sm text-on-surface flex items-center gap-2">
               <BarChart3 size={18} className="text-primary" />
               Volume Analysis: All vs Fraudulent
@@ -138,7 +122,7 @@ export default function Analytics() {
             </div>
           </div>
 
-          <div className="glass rounded-xl p-6 border border-white/5 flex flex-col gap-6">
+          <div className="glass-panel rounded-xl p-6 flex flex-col gap-6">
             <h3 className="font-h2 text-sm text-on-surface flex items-center gap-2">
               <PieIcon size={18} className="text-secondary" />
               Transaction Value Distribution
@@ -168,7 +152,7 @@ export default function Analytics() {
         </div>
 
         {/* Middle Row: Trends */}
-        <div className="glass rounded-xl p-6 border border-white/5 flex flex-col gap-6">
+        <div className="glass-panel rounded-xl p-6 flex flex-col gap-6">
           <h3 className="font-h2 text-sm text-on-surface flex items-center gap-2">
             <TrendingUp size={18} className="text-tertiary" />
             Monthly Threat Landscape Trends
@@ -202,7 +186,7 @@ export default function Analytics() {
 
         {/* Bottom Row: Model Health */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
-          <div className="xl:col-span-2 glass rounded-xl p-6 border border-white/5 flex flex-col gap-6">
+          <div className="xl:col-span-2 glass-panel rounded-xl p-6 flex flex-col gap-6">
             <h3 className="font-h2 text-sm text-on-surface flex items-center gap-2">
               <AlertTriangle size={18} className="text-error" />
               GNN Classification Accuracy (Safe vs Fraud)
@@ -226,22 +210,22 @@ export default function Analytics() {
             </div>
           </div>
 
-          <div className="glass rounded-xl p-6 border border-white/5 flex flex-col justify-between gap-4 bg-gradient-to-br from-white/[0.02] to-transparent">
+          <div className="glass-panel-elevated rounded-xl p-6 flex flex-col justify-between gap-4">
             <h3 className="font-h2 text-xs text-outline uppercase tracking-widest">Inference Summary</h3>
             <div className="grid grid-cols-2 gap-4">
-              <div className="p-4 bg-surface-container-low rounded-lg border border-white/5">
+              <div className="glass-panel rounded-lg p-4">
                 <div className="text-2xl font-bold text-primary tracking-tight">{data.summary.accuracy}%</div>
                 <div className="text-[10px] text-outline uppercase mt-1">Accuracy</div>
               </div>
-              <div className="p-4 bg-surface-container-low rounded-lg border border-white/5">
+              <div className="glass-panel rounded-lg p-4">
                 <div className="text-2xl font-bold text-tertiary tracking-tight">{data.summary.detection_rate}%</div>
                 <div className="text-[10px] text-outline uppercase mt-1">Recall</div>
               </div>
-              <div className="p-4 bg-surface-container-low rounded-lg border border-white/5">
+              <div className="glass-panel rounded-lg p-4">
                 <div className="text-2xl font-bold text-on-surface tracking-tight">{data.summary.total_ground_truth_fraud}</div>
                 <div className="text-[10px] text-outline uppercase mt-1">Real Fraud</div>
               </div>
-              <div className="p-4 bg-surface-container-low rounded-lg border border-white/5">
+              <div className="glass-panel rounded-lg p-4">
                 <div className="text-2xl font-bold text-on-surface tracking-tight">{formatNumber(data.summary.total_flagged)}</div>
                 <div className="text-[10px] text-outline uppercase mt-1">Flagged</div>
               </div>
