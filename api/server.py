@@ -8,10 +8,6 @@ from fastapi.middleware.cors import CORSMiddleware
 import json
 import gzip
 import os
-import torch
-import torch.nn.functional as F
-from torch_geometric.data import Data
-from torch_geometric.nn import SAGEConv, BatchNorm
 from pydantic import BaseModel
 from typing import List
 
@@ -20,28 +16,6 @@ app = FastAPI(
     description="MMORPG Transaction Fraud Detection powered by GraphSAGE",
     version="1.0.0"
 )
-
-# --- Model Architecture ---
-class HyperEliteSAGE(torch.nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels):
-        super(HyperEliteSAGE, self).__init__()
-        self.conv1 = SAGEConv(in_channels, hidden_channels)
-        self.bn1 = BatchNorm(hidden_channels)
-        self.conv2 = SAGEConv(hidden_channels, hidden_channels)
-        self.bn2 = BatchNorm(hidden_channels)
-        self.conv3 = SAGEConv(hidden_channels, out_channels)
-
-    def forward(self, x, edge_index):
-        x = self.conv1(x, edge_index)
-        x = self.bn1(x)
-        x = F.relu(x)
-        x = self.conv2(x, edge_index)
-        x = self.bn2(x)
-        x = F.relu(x)
-        x = self.conv3(x, edge_index)
-        return x
-
-gnn_model = None
 
 # CORS — allow React dev server
 app.add_middleware(
@@ -79,7 +53,7 @@ player_lookup = None
 
 @app.on_event("startup")
 def startup_load():
-    global dashboard_data, players_data, graph_data, player_lookup, gnn_model
+    global dashboard_data, players_data, graph_data, player_lookup
     dashboard_data = load_json('dashboard.json')
     players_data = load_json('players.json')
     graph_data = load_json('graph.json')
@@ -89,16 +63,6 @@ def startup_load():
         player_lookup = {}
     print(f"[API] Loaded data: {len(players_data or [])} players, "
           f"{len((graph_data or {}).get('nodes', []))} graph nodes")
-    
-    # Load PyTorch model
-    try:
-        gnn_model = HyperEliteSAGE(in_channels=9, hidden_channels=128, out_channels=2)
-        model_path = os.path.join(os.path.dirname(DATA_DIR), 'hyper_elite_medium_model.pth')
-        gnn_model.load_state_dict(torch.load(model_path, map_location='cpu', weights_only=True))
-        gnn_model.eval()
-        print("[API] Loaded PyTorch model successfully.")
-    except Exception as e:
-        print(f"[API] Failed to load PyTorch model: {e}")
 
 # --- Schemas ---
 class NodeFeatures(BaseModel):
