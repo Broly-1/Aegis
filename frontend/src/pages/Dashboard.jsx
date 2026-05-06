@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { ShieldAlert } from 'lucide-react';
 import './Dashboard.css';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:8000/api';
+const API = import.meta.env.VITE_API_URL || 'https://aegis-uakq.onrender.com/api';
 
 const PIE_COLORS = ['#6366f1', '#22d3ee', '#34d399', '#fbbf24', '#f87171'];
 

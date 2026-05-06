@@ -1,7 +1,13 @@
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.1.2+cpu
+--find-links https://data.pyg.org/whl/torch-2.1.2+cpu.html
+torch-geometric
+torch-scatter
+torch-sparse
+torch-cluster
+torch-spline-conv
 fastapi
 uvicorn
-torch
-torch-geometric
 pydantic
 pandas
 numpy
