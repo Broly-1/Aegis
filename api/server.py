@@ -28,6 +28,10 @@ app.add_middleware(
 
 # --- Data Loading ---
 DATA_DIR = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'data')
+MAX_PLAYERS = int(os.getenv("MAX_PLAYERS", "5000"))
+MAX_GRAPH_EDGES = int(os.getenv("MAX_GRAPH_EDGES", "2000"))
+MAX_GRAPH_NODES = int(os.getenv("MAX_GRAPH_NODES", "2000"))
+CACHE_LIMITED_DATA = os.getenv("CACHE_LIMITED_DATA", "1") != "0"
 
 
 def load_json(filename):
@@ -44,6 +48,114 @@ def load_json(filename):
     return None
 
 
+def open_data_file(filename):
+    """Open JSON or GZ-JSON data file for streaming reads."""
+    filepath = os.path.join(DATA_DIR, filename)
+    kz_path = filepath + ".gz"
+
+    if os.path.exists(kz_path):
+        return gzip.open(kz_path, 'rt', encoding='utf-8')
+    if os.path.exists(filepath):
+        return open(filepath, 'r', encoding='utf-8')
+    return None
+
+
+def load_json_array_head(filename, limit):
+    """Load only the first N items from a JSON array to cap memory usage."""
+    if limit <= 0:
+        return []
+
+    handle = open_data_file(filename)
+    if handle is None:
+        return None
+
+    decoder = json.JSONDecoder()
+    buffer = ""
+    items = []
+
+    with handle as f:
+        while True:
+            chunk = f.read(4096)
+            if not chunk:
+                return items
+            buffer += chunk
+            start_idx = buffer.find('[')
+            if start_idx != -1:
+                buffer = buffer[start_idx + 1:]
+                break
+
+        while len(items) < limit:
+            buffer = buffer.lstrip()
+            if not buffer:
+                chunk = f.read(4096)
+                if not chunk:
+                    break
+                buffer += chunk
+                continue
+
+            if buffer[0] == ']':
+                break
+
+            try:
+                value, offset = decoder.raw_decode(buffer)
+            except json.JSONDecodeError:
+                chunk = f.read(4096)
+                if not chunk:
+                    break
+                buffer += chunk
+                continue
+
+            items.append(value)
+            buffer = buffer[offset:]
+            if buffer.startswith(','):
+                buffer = buffer[1:]
+
+    return items
+
+
+def get_players_data():
+    """Load a capped player list on demand to avoid high memory usage."""
+    global players_data, player_lookup
+    if players_data is None:
+        data = load_json_array_head('players.json', MAX_PLAYERS)
+        if data is None:
+            return None
+        if CACHE_LIMITED_DATA:
+            players_data = data
+            player_lookup = {p['id']: p for p in data}
+        return data
+    return players_data
+
+
+def get_graph_data():
+    """Load a capped graph payload on demand."""
+    global graph_data
+    if graph_data is None:
+        data = load_json('graph.json')
+        if data is None:
+            return None
+        edges = data.get('edges') or data.get('links') or []
+        edges = edges[:MAX_GRAPH_EDGES]
+        node_ids = set()
+        for edge in edges:
+            node_ids.add(edge.get('source'))
+            node_ids.add(edge.get('target'))
+
+        nodes = data.get('nodes') or []
+        if node_ids:
+            nodes = [node for node in nodes if node.get('id') in node_ids]
+        nodes = nodes[:MAX_GRAPH_NODES]
+
+        data = {
+            'nodes': nodes,
+            'edges': edges,
+        }
+        if CACHE_LIMITED_DATA:
+            graph_data = data
+        return data
+    return graph_data
+
+
 # Cache data on startup
 dashboard_data = None
 players_data = None
@@ -55,14 +167,10 @@ player_lookup = None
 def startup_load():
     global dashboard_data, players_data, graph_data, player_lookup
     dashboard_data = load_json('dashboard.json')
-    players_data = load_json('players.json')
-    graph_data = load_json('graph.json')
-    if players_data:
-        player_lookup = {p['id']: p for p in players_data}
-    else:
-        player_lookup = {}
-    print(f"[API] Loaded data: {len(players_data or [])} players, "
-          f"{len((graph_data or {}).get('nodes', []))} graph nodes")
+    players_data = None
+    graph_data = None
+    player_lookup = None
+    print("[API] Loaded dashboard data")
 
 # --- Schemas ---
 class NodeFeatures(BaseModel):
@@ -142,10 +250,11 @@ def get_players(
     sort_order: str = Query("desc", description="asc or desc"),
 ):
     """Paginated player list with search & filter."""
-    if not players_data:
+    players = get_players_data()
+    if not players:
         return {"error": "Player data not found. Run inference.py first."}
     
-    filtered = players_data
+    filtered = players
     
     # Search
     if search:
@@ -175,12 +284,19 @@ def get_players(
         'page': page,
         'per_page': per_page,
         'total_pages': (total + per_page - 1) // per_page,
+        'data_limit': MAX_PLAYERS,
     }
 
 
 @app.get("/api/players/{player_id}")
 def get_player(player_id: str):
     """Get details for a single player."""
+    players = get_players_data()
+    if not players:
+        return {"error": "Player data not found."}
+    if not player_lookup:
+        player_lookup = {p['id']: p for p in players}
+    
     if not player_lookup:
         return {"error": "Player data not found."}
     
@@ -194,9 +310,10 @@ def get_player(player_id: str):
 @app.get("/api/graph")
 def get_graph():
     """Return graph visualization data (fraud subgraph)."""
-    if not graph_data:
+    data = get_graph_data()
+    if not data:
         return {"error": "Graph data not found. Run inference.py first."}
-    return graph_data
+    return data
 
 
 @app.get("/api/stats/risk-distribution")
