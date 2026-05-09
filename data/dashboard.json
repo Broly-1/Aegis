@@ -3,9 +3,11 @@
     "total_players": 2076999,
     "total_transactions": 31898238,
     "total_flagged": 916,
+    "total_safe": 31863008,
     "total_ground_truth_fraud": 35230,
     "detection_rate": 22.79,
     "precision": 20.52,
+    "f1_score": 21.6,
     "accuracy": 99.9
   },
   "trade_types": {

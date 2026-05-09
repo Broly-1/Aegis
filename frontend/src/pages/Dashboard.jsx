@@ -115,7 +115,7 @@ export default function Dashboard() {
 </div>
 <div className="font-data-lg text-h1 text-error glow-rose tracking-tight">{formatNumber(summary.total_flagged)}</div>
 <div className="mt-2 text-xs text-error flex items-center gap-1 font-body-sm">
-<span className="material-symbols-outlined text-[14px]">priority_high</span> {((summary.total_flagged / summary.total_players) * 100).toFixed(1)}% of players
+<span className="material-symbols-outlined text-[14px]">priority_high</span> {((summary.total_flagged / summary.total_players) * 100).toFixed(3)}% of players
 </div>
 </div>
 
