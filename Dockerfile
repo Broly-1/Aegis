@@ -14,8 +14,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the rest of the application code
 COPY --chown=user . .
 
-# Hugging Face Spaces route web traffic to port 7860
-EXPOSE 7860
+# Cloud Run and Hugging Face provide the PORT environment variable
+ENV PORT=8080
+EXPOSE 8080
 
-# Start the FastAPI server on port 7860
-CMD ["uvicorn", "api.server:app", "--host", "0.0.0.0", "--port", "7860"]
+# Start the FastAPI server using the dynamic PORT
+CMD ["sh", "-c", "uvicorn api.server:app --host 0.0.0.0 --port ${PORT}"]

@@ -59,6 +59,9 @@ def run_inference():
     all_receivers = set()
     
     # Scan file in chunks for aggregate stats to save RAM
+    monthly_stats = Counter()
+    value_buckets = Counter()
+    
     for chunk in pd.read_csv(FILE_PATH, chunksize=CHUNK_SIZE):
         total_tx += len(chunk)
         total_value += chunk['In_Game_Currency_Value'].sum()
@@ -67,11 +70,28 @@ def run_inference():
         
         trade_type_counts.update(chunk['Trade_Type'].tolist())
         fraud_by_type.update(fraud_chunk['Trade_Type'].tolist())
+        
+        # 1. Transaction Value Buckets
+        vals = chunk['In_Game_Currency_Value']
+        value_buckets['< 1K'] += int((vals < 1000).sum())
+        value_buckets['1K - 10K'] += int(((vals >= 1000) & (vals < 10000)).sum())
+        value_buckets['10K - 100K'] += int(((vals >= 10000) & (vals < 100000)).sum())
+        value_buckets['100K - 1M'] += int(((vals >= 100000) & (vals < 1000000)).sum())
+        value_buckets['> 1M'] += int((vals >= 1000000).sum())
+
+        # 2. Monthly Trends (simplified date extraction)
+        chunk['Trade_Time'] = pd.to_datetime(chunk['Trade_Time'], errors='coerce')
+        months = chunk['Trade_Time'].dt.to_period('M').dropna().astype(str).tolist()
+        monthly_stats.update(months)
+
         all_senders.update(chunk['Sender_Player_ID'].unique())
         all_receivers.update(chunk['Receiver_Player_ID'].unique())
         print(f"  Processed {total_tx:,} transactions...")
 
     global_unique_players = len(all_senders.union(all_receivers))
+    
+    # Sort monthly trends
+    monthly_data = [{'month': m, 'transactions': c} for m, c in sorted(monthly_stats.items())]
     
     # --- 2. Inference & Feature Engineering (On manageable sample) ---
     print("\n[2/6] Loading GNN Inference Sample (2M rows)...")
@@ -194,19 +214,22 @@ def run_inference():
         },
         'trade_types': dict(trade_type_counts),
         'fraud_by_trade_type': dict(fraud_by_type),
+        'value_distribution': dict(value_buckets),
+        'monthly_trends': monthly_data,
         'risk_distribution': {
             'Critical (0.8+)': int(np.sum(fraud_probs >= 0.8)),
             'High (0.5-0.8)': int(np.sum((fraud_probs >= 0.5) & (fraud_probs < 0.8))),
             'Safe (< 0.5)': int(np.sum(fraud_probs < 0.5)),
         },
         'top_flagged_players': players_data[:20],
+        'classification_report': report,
     }
     
     with open('data/dashboard.json', 'w') as f:
         json.dump(dashboard, f, indent=2)
     
     print("\n" + "=" * 60)
-    print("  INFERENCE COMPLETE - System Optimized")
+    print("  INFERENCE COMPLETE - Analytics Restored")
     print("=" * 60)
 
 if __name__ == '__main__':
