@@ -114,10 +114,11 @@ def load_json_array_head(filename, limit):
 
 
 def get_players_data():
-    """Load a capped player list on demand to avoid high memory usage."""
+    """Load the pre-capped player list for instant dashboard performance."""
     global players_data, player_lookup
     if players_data is None:
-        data = load_json_array_head('players.json', MAX_PLAYERS)
+        # We now use standard load_json because inference.py already capped this file to 5,000
+        data = load_json('players.json')
         if data is None:
             return None
         if CACHE_LIMITED_DATA:

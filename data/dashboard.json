@@ -1,54 +1,34 @@
 {
   "summary": {
-    "total_players": 1309364,
-    "total_transactions": 2000000,
+    "total_players": 2076999,
+    "total_transactions": 31898238,
     "total_flagged": 916,
-    "total_safe": 1308448,
-    "total_ground_truth_fraud": 825,
+    "total_ground_truth_fraud": 35230,
     "detection_rate": 22.79,
     "precision": 20.52,
-    "f1_score": 21.6,
     "accuracy": 99.9
   },
   "trade_types": {
-    "Reinvestment": 1152931,
-    "Cheque": 326369,
-    "Credit Card": 238772,
-    "ACH": 122346,
-    "Cash": 84959,
-    "Bitcoin": 40474,
-    "Wire": 34149
+    "Reinvestment": 1945611,
+    "Cheque": 12280058,
+    "Credit Card": 8777816,
+    "ACH": 3868410,
+    "Wire": 1119774,
+    "Cash": 3217531,
+    "Bitcoin": 689038
   },
   "fraud_by_trade_type": {
-    "ACH": 526,
-    "Cheque": 50,
-    "Credit Card": 28,
-    "Cash": 15,
-    "Bitcoin": 4
-  },
-  "value_distribution": {
-    "< 1K": 848439,
-    "1K - 10K": 431184,
-    "10K - 100K": 366244,
-    "100K - 1M": 219176,
-    "1M - 10M": 95114,
-    "> 10M": 39843
+    "Cheque": 2220,
+    "ACH": 30746,
+    "Cash": 666,
+    "Credit Card": 1354,
+    "Bitcoin": 244
   },
   "risk_distribution": {
-    "Very Low (0-0.2)": 785789,
-    "Low (0.2-0.4)": 271963,
-    "Medium (0.4-0.6)": 203002,
-    "High (0.6-0.8)": 45862,
-    "Critical (0.8-1.0)": 2748
+    "Critical (0.8+)": 2748,
+    "High (0.5-0.8)": 111402,
+    "Safe (< 0.5)": 1195214
   },
-  "monthly_trends": [
-    {
-      "month": "2022-09",
-      "transactions": 2000000,
-      "volume": 27355436477800.46,
-      "fraud_count": 623
-    }
-  ],
   "top_flagged_players": [
     {
       "id": "8000F48D0",
@@ -270,32 +250,5 @@
       "trade_count_in": 1,
       "ratio": 13.6471
     }
-  ],
-  "classification_report": {
-    "Safe": {
-      "precision": 0.9995131636870552,
-      "recall": 0.999443654335102,
-      "f1-score": 0.9994784078025607,
-      "support": 1308539.0
-    },
-    "Fraudulent": {
-      "precision": 0.2052401746724891,
-      "recall": 0.22787878787878788,
-      "f1-score": 0.21596783457782884,
-      "support": 825.0
-    },
-    "accuracy": 0.9989575091418429,
-    "macro avg": {
-      "precision": 0.6023766691797722,
-      "recall": 0.6136612211069449,
-      "f1-score": 0.6077231211901948,
-      "support": 1309364.0
-    },
-    "weighted avg": {
-      "precision": 0.9990127106305048,
-      "recall": 0.9989575091418429,
-      "f1-score": 0.9989847358955047,
-      "support": 1309364.0
-    }
-  }
+  ]
 }

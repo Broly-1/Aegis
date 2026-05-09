@@ -34,9 +34,10 @@ export default function Sandbox() {
   const graphContainerRef = useRef(null);
   const [graphSize, setGraphSize] = useState({ width: 640, height: 360 });
 
-  // Run simulation on initial load and whenever network changes
+  // Run simulation with debouncing to prevent UI lag
   useEffect(() => {
     let cancelled = false;
+    let debounceTimer;
 
     async function runSimulation() {
       try {
@@ -54,8 +55,15 @@ export default function Sandbox() {
       }
     }
 
-    runSimulation();
-    return () => { cancelled = true; };
+    // Debounce the API call by 200ms
+    debounceTimer = setTimeout(() => {
+      runSimulation();
+    }, 200);
+
+    return () => { 
+      cancelled = true; 
+      clearTimeout(debounceTimer);
+    };
   }, [target, neighbors]);
 
   useEffect(() => {
