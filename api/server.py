@@ -192,22 +192,31 @@ def simulate_gnn(req: SimulateRequest):
     This safely simulates the exact expected Message Passing behavior for the frontend visualization."""
     
     import random
+    import math
     
     # 1. Base Node Features (Simulating the GNN's Linear layers)
     base_risk = 0.01 # 1% baseline risk
     
     ratio = req.target.sent / (req.target.received + 1)
     
-    if ratio > 50: base_risk += 0.2
-    if ratio > 500: base_risk += 0.2
-    if req.target.sent > 1_000_000: base_risk += 0.15
-    if req.target.trades_out > 20 and req.target.trades_in == 0: base_risk += 0.15
+    # Smooth continuous impact of ratio (up to +0.4)
+    if ratio > 1:
+        base_risk += min(0.4, 0.15 * math.log10(ratio))
+        
+    # Smooth continuous impact of volume (up to +0.3)
+    if req.target.sent > 1000:
+        base_risk += min(0.3, 0.075 * math.log10(req.target.sent / 1000))
+        
+    # Smooth continuous impact of trade asymmetry (up to +0.2)
+    trade_ratio = req.target.trades_out / (req.target.trades_in + 1)
+    if trade_ratio > 1:
+        base_risk += min(0.25, 0.1 * math.log10(trade_ratio))
         
     # 2. Graph Topology (Simulating GraphSAGE Neighborhood Aggregation)
     neighbor_risk = 0.0
     for n in req.neighbors:
         n_ratio = n.sent / (n.received + 1)
-        if n.sent > 1_000_000 and n_ratio > 100:
+        if n.sent > 1_000_000 and n_ratio > 10:
             neighbor_risk += 0.45 # Massive penalty for trading with hackers
         else:
             neighbor_risk -= 0.15 # Bonus for trading with legitimate players

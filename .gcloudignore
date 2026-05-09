@@ -1,0 +1,9 @@
+.git
+.gitignore
+.venv/
+__pycache__/
+*.csv
+*.csv.gz
+frontend/node_modules/
+frontend/dist/
+.env
