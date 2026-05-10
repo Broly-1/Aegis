@@ -14,48 +14,49 @@ from sklearn.metrics import classification_report
 from torch_geometric.utils import to_scipy_sparse_matrix
 import json
 import os
+import joblib
 from collections import Counter
 
 # --- Model Architecture (must match training) ---
 class HyperEliteSAGE(torch.nn.Module):
     def __init__(self, in_channels, hidden_channels, out_channels):
         super(HyperEliteSAGE, self).__init__()
+        # Graph processing layers
         self.conv1 = SAGEConv(in_channels, hidden_channels)
         self.bn1 = BatchNorm(hidden_channels)
         self.conv2 = SAGEConv(hidden_channels, hidden_channels)
         self.bn2 = BatchNorm(hidden_channels)
-        self.conv3 = SAGEConv(hidden_channels, out_channels)
+        # Root Node Injection: Combine graph and tabular features
+        self.classifier = torch.nn.Linear(hidden_channels + in_channels, out_channels)
 
     def forward(self, x, edge_index):
-        # Layer 1
         h1 = self.conv1(x, edge_index)
         h1 = self.bn1(h1)
         h1 = F.relu(h1)
         h1 = F.dropout(h1, p=0.3, training=self.training)
         
-        # Layer 2 with Skip Connection (Matches training logic)
         h2 = self.conv2(h1, edge_index)
         h2 = self.bn2(h2)
         h2 = F.relu(h2)
         h2 = h2 + h1 
         
-        # Layer 3 (Output)
-        out = self.conv3(h2, edge_index)
+        # ROOT NODE INJECTION: Preserve sharp local signals
+        combined_features = torch.cat([h2, x], dim=1)
+        out = self.classifier(combined_features)
         return out
 
 
 def run_inference():
     """Run optimized inference pipeline and export data."""
-    
     print("=" * 60)
-    print("  GNN FRAUD DETECTION - OPTIMIZED INFERENCE")
+    print("  GNN FRAUD DETECTION - FULL SCALE ENSEMBLE INFERENCE")
     print("=" * 60)
     
     FILE_PATH = 'MMORPG_Medium_Cleaned.csv'
     CHUNK_SIZE = 1_000_000
     
-    # --- 1. Global Stats Calculation (Chunked) ---
-    print("\n[1/6] Calculating Global Stats (Full Dataset Scan)...")
+    # --- 1. Global Stats Calculation (Full Dataset Scan) ---
+    print("\n[1/6] Calculating Global Stats...")
     total_tx = 0
     total_value = 0
     fraud_tx = 0
@@ -63,8 +64,6 @@ def run_inference():
     fraud_by_type = Counter()
     all_senders = set()
     all_receivers = set()
-    
-    # Scan file in chunks for aggregate stats to save RAM
     monthly_stats = Counter()
     value_buckets = Counter()
     
@@ -73,11 +72,9 @@ def run_inference():
         total_value += chunk['In_Game_Currency_Value'].sum()
         fraud_chunk = chunk[chunk['Is_Fraudulent_Trade'] == 1]
         fraud_tx += len(fraud_chunk)
-        
         trade_type_counts.update(chunk['Trade_Type'].tolist())
         fraud_by_type.update(fraud_chunk['Trade_Type'].tolist())
         
-        # 1. Transaction Value Buckets
         vals = chunk['In_Game_Currency_Value']
         value_buckets['< 1K'] += int((vals < 1000).sum())
         value_buckets['1K - 10K'] += int(((vals >= 1000) & (vals < 10000)).sum())
@@ -85,26 +82,21 @@ def run_inference():
         value_buckets['100K - 1M'] += int(((vals >= 100000) & (vals < 1000000)).sum())
         value_buckets['> 1M'] += int((vals >= 1000000).sum())
 
-        # 2. Monthly Trends (simplified date extraction)
         chunk['Trade_Time'] = pd.to_datetime(chunk['Trade_Time'], errors='coerce')
         months = chunk['Trade_Time'].dt.to_period('M').dropna().astype(str).tolist()
         monthly_stats.update(months)
 
         all_senders.update(chunk['Sender_Player_ID'].unique())
         all_receivers.update(chunk['Receiver_Player_ID'].unique())
-        print(f"  Processed {total_tx:,} transactions...")
+        if total_tx % 5_000_000 == 0: print(f"  Scanned {total_tx:,} transactions...")
 
     global_unique_players = len(all_senders.union(all_receivers))
-    
-    # Sort monthly trends
     monthly_data = [{'month': m, 'transactions': c} for m, c in sorted(monthly_stats.items())]
     
-    # --- 2. Inference & Feature Engineering (On manageable sample) ---
-    print("\n[2/6] Loading GNN Inference Sample (2M rows)...")
-    SAMPLE_SIZE = 2_000_000
-    df = pd.read_csv(FILE_PATH, nrows=SAMPLE_SIZE)
+    # --- 2. Full Dataset Feature Engineering ---
+    print("\n[2/6] Engineering Node Features (Full Dataset)...")
+    df = pd.read_csv(FILE_PATH)
     
-    print("[3/6] Engineering node features & PageRank...")
     stats_out = df.groupby('Sender_Player_ID').agg(
         Total_Sent=('In_Game_Currency_Value', 'sum'),
         Trade_Count_Out=('In_Game_Currency_Value', 'count'),
@@ -124,7 +116,16 @@ def run_inference():
     player_features['Ratio'] = player_features['Total_Sent'] / (player_features['Total_Received'] + 1)
     player_features['Unique_Ratio'] = player_features['Unique_Receivers'] / (player_features['Unique_Senders'] + 1)
     
-    # Build Graph & PageRank
+    df['Trade_Time'] = pd.to_datetime(df['Trade_Time'])
+    df_sorted = df.sort_values(['Sender_Player_ID', 'Trade_Time'])
+    df_sorted['Time_Diff'] = df_sorted.groupby('Sender_Player_ID')['Trade_Time'].diff().dt.total_seconds()
+    velocity_stats = df_sorted.groupby('Sender_Player_ID')['Time_Diff'].mean().reset_index().rename(
+        columns={'Sender_Player_ID': 'Player_ID', 'Time_Diff': 'Velocity'}
+    )
+    player_features = player_features.merge(velocity_stats, on='Player_ID', how='left').fillna(3600)
+    
+    # --- 3. Build Graph & PageRank ---
+    print("[3/6] Building Graph Topology & PageRank...")
     player_to_idx = {player: i for i, player in enumerate(unique_players_list)}
     src = df['Sender_Player_ID'].map(player_to_idx).values
     dst = df['Receiver_Player_ID'].map(player_to_idx).values
@@ -137,45 +138,68 @@ def run_inference():
         pr = 0.85 * adj_T.dot(pr) + 0.15 / len(unique_players_list)
     player_features['PageRank'] = pr
 
-    features_cols = ['Total_Sent', 'Total_Received', 'Trade_Count_Out', 'Trade_Count_In', 'Ratio', 'Unique_Receivers', 'Unique_Senders', 'Unique_Ratio', 'PageRank']
-    features_np = np.log1p(player_features[features_cols].values)
-    x = torch.tensor(features_np, dtype=torch.float)
+    features_cols = ['Total_Sent', 'Total_Received', 'Trade_Count_Out', 'Trade_Count_In', 'Ratio', 'Unique_Receivers', 'Unique_Senders', 'Unique_Ratio', 'PageRank', 'Velocity']
+    x_np = np.log1p(player_features[features_cols].values)
     
-    # Ground truth
     hacker_ids = set(df[df['Is_Fraudulent_Trade'] == 1]['Sender_Player_ID']).union(
                  set(df[df['Is_Fraudulent_Trade'] == 1]['Receiver_Player_ID']))
-    y = torch.tensor([1 if p in hacker_ids else 0 for p in unique_players_list], dtype=torch.long)
-    data = Data(x=x, edge_index=edge_index, y=y)
+    y_true = np.array([1 if p in hacker_ids else 0 for p in unique_players_list])
     
-    # --- 4. Run Model ---
-    print("[4/6] Running GNN predictions...")
+    # --- 4. Run Ensemble Inference ---
+    print("[4/6] Running Stage-1 & Stage-2 Inference...")
+    from torch_geometric.loader import NeighborLoader
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    
     model = HyperEliteSAGE(in_channels=len(features_cols), hidden_channels=128, out_channels=2).to(device)
     model.load_state_dict(torch.load('hyper_elite_medium_model.pth', map_location=device, weights_only=True))
     model.eval()
     
-    opt_threshold = 0.5
-    if os.path.exists("threshold.txt"):
-        with open("threshold.txt", "r") as f: opt_threshold = float(f.read().strip())
+    data = Data(x=torch.tensor(x_np, dtype=torch.float), edge_index=edge_index)
+    loader = NeighborLoader(data, num_neighbors=[15, 10], batch_size=8192, shuffle=False)
     
+    embeddings_list = []
     with torch.no_grad():
-        out = model(data.x.to(device), data.edge_index.to(device))
+        for i, batch in enumerate(loader):
+            batch = batch.to(device)
+            h1 = model.conv1(batch.x, batch.edge_index)
+            h1 = model.bn1(h1)
+            h1 = F.relu(h1)
+            h2 = model.conv2(h1, batch.edge_index)
+            h2 = model.bn2(h2)
+            h2 = F.relu(h2)
+            h2 = h2 + h1 
+            combined = torch.cat([h2[:batch.batch_size], batch.x[:batch.batch_size]], dim=1)
+            embeddings_list.append(combined.cpu().numpy())
+            if i % 500 == 0: print(f"  Processed {i * 8192:,} nodes...")
+
+    combined_features = np.concatenate(embeddings_list, axis=0)
+
+    if os.path.exists('xgboost_ensemble_model.pkl'):
+        print("  -> Executing Stage-2 Sniper (XGBoost)...")
+        xgb_model = joblib.load('xgboost_ensemble_model.pkl')
+        fraud_probs = xgb_model.predict_proba(combined_features)[:, 1]
+        opt_threshold = 0.5
+        if os.path.exists("threshold.txt"):
+            with open("threshold.txt", "r") as f: opt_threshold = float(f.read().strip())
+        preds = (fraud_probs >= opt_threshold).astype(int)
+    else:
+        print("  -> Stage-2 Model not found. Falling back to GNN.")
+        out = model.classifier(torch.tensor(combined_features).to(device))
         probs = F.softmax(out, dim=1)
         fraud_probs = probs[:, 1].cpu().numpy()
-        preds = (probs[:, 1] >= opt_threshold).cpu().long().numpy()
+        preds = (fraud_probs >= 0.5).astype(int)
 
-    # --- 5. Export Optimized JSONs ---
-    print("[5/6] Exporting Capped Data (Players & Graph)...")
+    # --- 5. Export JSONs ---
+    print("[5/6] Exporting Data for Dashboard...")
     os.makedirs('data', exist_ok=True)
     
-    # Export only top 5000 players (Risky first)
     players_data = []
     for i, player_id in enumerate(unique_players_list):
         players_data.append({
             'id': str(player_id),
             'risk_score': round(float(fraud_probs[i]), 4),
             'predicted_label': 'Fraudulent' if preds[i] == 1 else 'Safe',
-            'ground_truth': 'Fraudulent' if y[i] == 1 else 'Safe',
+            'ground_truth': 'Fraudulent' if y_true[i] == 1 else 'Safe',
             'total_sent': round(float(player_features.iloc[i]['Total_Sent']), 2),
             'total_received': round(float(player_features.iloc[i]['Total_Received']), 2),
             'trade_count_out': int(player_features.iloc[i]['Trade_Count_Out']),
@@ -184,12 +208,9 @@ def run_inference():
         })
     players_data.sort(key=lambda p: p['risk_score'], reverse=True)
     
-    # CAP AT 5000 PLAYERS
-    export_players = players_data[:5000]
     with open('data/players.json', 'w', encoding='utf-8') as f:
-        json.dump(export_players, f)
+        json.dump(players_data[:5000], f)
 
-    # C) Export Capped Graph (Top 2000 connections)
     fraud_edges_df = df[df['Is_Fraudulent_Trade'] == 1].head(2000)
     graph_nodes = set()
     graph_edges = []
@@ -198,23 +219,24 @@ def run_inference():
         graph_nodes.add(s); graph_nodes.add(r)
         graph_edges.append({'source': s, 'target': r, 'value': float(row['In_Game_Currency_Value']), 'type': str(row['Trade_Type'])})
     
-    player_lookup = {p['id']: p for p in players_data}
+    player_lookup = {p['id']: p for p in players_data[:10000]}
     graph_nodes_data = [{'id': nid, 'risk_score': player_lookup.get(nid, {}).get('risk_score', 0), 'label': player_lookup.get(nid, {}).get('predicted_label', 'Safe')} for nid in graph_nodes]
     
     with open('data/graph.json', 'w') as f:
         json.dump({'nodes': graph_nodes_data, 'edges': graph_edges}, f)
 
-    # --- 6. Dashboard (Global Metrics) ---
-    print("[6/6] Finalizing Dashboard (Global Stats)...")
-    report = classification_report(y.numpy(), preds, target_names=['Safe', 'Fraudulent'], output_dict=True, zero_division=0)
+    # --- 6. Dashboard Metrics ---
+    print("[6/6] Finalizing Dashboard Analytics...")
+    report = classification_report(y_true, preds, target_names=['Safe', 'Fraudulent'], output_dict=True, zero_division=0)
     
     dashboard = {
         'summary': {
             'total_players': global_unique_players,
             'total_transactions': total_tx,
             'total_flagged': int(np.sum(preds == 1)),
-            'total_safe': total_tx - fraud_tx,
-            'total_ground_truth_fraud': fraud_tx,
+            'total_safe': int(np.sum(preds == 0)),
+            'total_safe_trades': total_tx - fraud_tx,
+            'total_ground_truth_fraud': int(np.sum(y_true == 1)),
             'detection_rate': round(report.get('Fraudulent', {}).get('recall', 0) * 100, 2),
             'precision': round(report.get('Fraudulent', {}).get('precision', 0) * 100, 2),
             'f1_score': round(report.get('Fraudulent', {}).get('f1-score', 0) * 100, 2),
@@ -232,12 +254,11 @@ def run_inference():
         'top_flagged_players': players_data[:20],
         'classification_report': report,
     }
-    
     with open('data/dashboard.json', 'w') as f:
         json.dump(dashboard, f, indent=2)
     
     print("\n" + "=" * 60)
-    print("  INFERENCE COMPLETE - Analytics Restored")
+    print("  INFERENCE COMPLETE - ENSEMBLE ACTIVE")
     print("=" * 60)
 
 if __name__ == '__main__':

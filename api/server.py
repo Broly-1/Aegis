@@ -179,6 +179,7 @@ class NodeFeatures(BaseModel):
     received: float
     trades_out: int
     trades_in: int
+    velocity: float = 3600.0
 
 class SimulateRequest(BaseModel):
     target: NodeFeatures
@@ -212,6 +213,12 @@ def simulate_gnn(req: SimulateRequest):
     trade_ratio = req.target.trades_out / (req.target.trades_in + 1)
     if trade_ratio > 1:
         base_risk += min(0.25, 0.1 * math.log10(trade_ratio))
+        
+    # ROOT NODE INJECTION: Velocity Impact (Up to +0.5 for script speed)
+    # 0-5 seconds is highly suspicious for MMORPG trading
+    if req.target.velocity < 60:
+        velocity_risk = (60 - req.target.velocity) / 60.0
+        base_risk += velocity_risk * 0.5 
         
     # 2. Graph Topology (Simulating GraphSAGE Neighborhood Aggregation)
     neighbor_risk = 0.0

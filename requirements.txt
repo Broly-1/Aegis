@@ -1,3 +1,11 @@
 fastapi
 uvicorn
+torch
+torch-geometric
 pydantic
+pandas
+numpy
+xgboost
+scikit-learn
+joblib
+scipy

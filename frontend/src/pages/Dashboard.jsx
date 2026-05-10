@@ -123,7 +123,7 @@ export default function Dashboard() {
 <span className="font-label-caps text-label-caps text-on-surface-variant uppercase">Safe Trades</span>
 <span className="material-symbols-outlined text-outline">verified_user</span>
 </div>
-<div className="font-data-lg text-h1 text-secondary tracking-tight">{formatNumber(summary.total_safe)}</div>
+<div className="font-data-lg text-h1 text-secondary tracking-tight">{formatNumber(summary.total_safe_trades)}</div>
 <div className="mt-2 text-xs text-on-surface-variant flex items-center gap-1 font-body-sm">
 <span className="material-symbols-outlined text-[14px]">check_circle</span> Verified as legitimate
 </div>

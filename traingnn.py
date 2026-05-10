@@ -22,16 +22,19 @@ class FocalLoss(torch.nn.Module):
         return focal_loss.mean()
 
 # --- 1. MODEL ARCHITECTURE ---
-# We define the class outside the main block so workers can access it
 class HyperEliteSAGE(torch.nn.Module):
     def __init__(self, in_channels, hidden_channels, out_channels):
         super(HyperEliteSAGE, self).__init__()
-        # 3-Layer architecture to capture deeper circular patterns
+        
+        # Graph processing layers (Capture neighborhood topological patterns)
         self.conv1 = SAGEConv(in_channels, hidden_channels)
         self.bn1 = BatchNorm(hidden_channels)
         self.conv2 = SAGEConv(hidden_channels, hidden_channels)
         self.bn2 = BatchNorm(hidden_channels)
-        self.conv3 = SAGEConv(hidden_channels, out_channels)
+        
+        # THE ROOT INJECTION FIX: The final classifier takes the deep graph features 
+        # PLUS the raw original tabular features to prevent oversmoothing
+        self.classifier = torch.nn.Linear(hidden_channels + in_channels, out_channels)
 
     def forward(self, x, edge_index):
         # Layer 1
@@ -44,18 +47,21 @@ class HyperEliteSAGE(torch.nn.Module):
         h2 = self.conv2(h1, edge_index)
         h2 = self.bn2(h2)
         h2 = F.relu(h2)
-        # Add the input of layer 2 to its output to preserve signal
         h2 = h2 + h1 
         
-        # Layer 3 (Output)
-        out = self.conv3(h2, edge_index)
+        # ROOT NODE INJECTION: Concatenate the graph context with the raw tabular features
+        # This prevents "blurring" of sharp features like Velocity or Ratio
+        combined_features = torch.cat([h2, x], dim=1)
+        
+        # Final decision based on the union of topology and raw stats
+        out = self.classifier(combined_features)
         return out
 
 # --- 2. EXECUTION BLOCK (The Windows Multiprocessing Fix) ---
 if __name__ == '__main__':
     # A. Load Dataset
-    print("Step 1: Loading Medium Dataset (32M Transactions)...")
-    df = pd.read_csv('MMORPG_Medium_Cleaned.csv', nrows=2000000)
+    print("Step 1: Loading Full Dataset (32M Transactions)...")
+    df = pd.read_csv('MMORPG_Medium_Cleaned.csv')
 
     # B. Advanced Feature Engineering
     print("Step 2: Engineering Node Features (Total Sent, Received, Ratio)...")
@@ -85,6 +91,17 @@ if __name__ == '__main__':
     # Feature: Hub/Authority Ratio
     player_features['Unique_Ratio'] = player_features['Unique_Receivers'] / (player_features['Unique_Senders'] + 1)
 
+    # Feature: Velocity (Avg Seconds Between Trades) - Phase 3
+    # Detects script-based hackers who trade at impossible human speeds
+    print("  -> Calculating Trade Velocity...")
+    df['Trade_Time'] = pd.to_datetime(df['Trade_Time'])
+    df_sorted = df.sort_values(['Sender_Player_ID', 'Trade_Time'])
+    df_sorted['Time_Diff'] = df_sorted.groupby('Sender_Player_ID')['Trade_Time'].diff().dt.total_seconds()
+    velocity_stats = df_sorted.groupby('Sender_Player_ID')['Time_Diff'].mean().reset_index().rename(
+        columns={'Sender_Player_ID': 'Player_ID', 'Time_Diff': 'Velocity'}
+    )
+    player_features = player_features.merge(velocity_stats, on='Player_ID', how='left').fillna(3600) # Default to 1 hour if only 1 trade
+
     # C. Build Graph Topology
     print("Step 3: Mapping IDs and Building Adjacency Matrix...")
     player_to_idx = {player: i for i, player in enumerate(unique_players_list)}
@@ -104,7 +121,7 @@ if __name__ == '__main__':
     player_features['PageRank'] = pr
 
     # Log transformation to normalize wealth distribution
-    features_cols = ['Total_Sent', 'Total_Received', 'Trade_Count_Out', 'Trade_Count_In', 'Ratio', 'Unique_Receivers', 'Unique_Senders', 'Unique_Ratio', 'PageRank']
+    features_cols = ['Total_Sent', 'Total_Received', 'Trade_Count_Out', 'Trade_Count_In', 'Ratio', 'Unique_Receivers', 'Unique_Senders', 'Unique_Ratio', 'PageRank', 'Velocity']
     features_np = np.log1p(player_features[features_cols].values)
     x = torch.tensor(features_np, dtype=torch.float)
 
@@ -118,12 +135,30 @@ if __name__ == '__main__':
     # Create PyG Data Object
     data = Data(x=x, edge_index=edge_index, y=y)
 
-    # E. Initialize NeighborLoader (Big Data Streaming)
-    # Optimized for 32GB RAM: Batch Size 4096 with 4 Workers
+    # E. Initialize NeighborLoader (Biased Neighborhood Sampling)
+    # We force the model to see a higher concentration of hackers (25%) in every batch
+    # to overcome the extreme class imbalance in the 2M node sample.
+    print("Step 5: Implementing Biased Sampling (25% Fraud Rate)...")
+    hacker_indices = (y == 1).nonzero(as_tuple=False).view(-1)
+    safe_indices = (y == 0).nonzero(as_tuple=False).view(-1)
+
+    # Calculate how many safe nodes to include to reach 10% fraud ratio (Phase 1)
+    num_hackers = len(hacker_indices)
+    num_safe_to_sample = num_hackers * 9 # 1 hacker for every 9 safe players = 10%
+    
+    # Randomly sample safe nodes
+    perm = torch.randperm(len(safe_indices))[:num_safe_to_sample]
+    sampled_safe_indices = safe_indices[perm]
+    
+    # Combine and shuffle
+    balanced_input_nodes = torch.cat([hacker_indices, sampled_safe_indices])
+    balanced_input_nodes = balanced_input_nodes[torch.randperm(len(balanced_input_nodes))]
+
     loader = NeighborLoader(
         data,
-        num_neighbors=[15, 10, 5], # Samples 1st and 2nd hop partners
+        num_neighbors=[15, 10, 5], 
         batch_size=4096,
+        input_nodes=balanced_input_nodes, # Root nodes for sampling
         shuffle=True,
         num_workers=0,
         persistent_workers=False
@@ -136,14 +171,18 @@ if __name__ == '__main__':
     # Weight decay (L2 Regularization) prevents overfitting on large outliers
     optimizer = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-4)
     
-    # Focal Loss to handle the extreme imbalance by penalizing confident wrong predictions
-    alpha_weights = torch.tensor([1.0, 200.0]).to(device)
-    criterion = FocalLoss(alpha=alpha_weights, gamma=3.0)
+    # Focal Loss: Dialing back alpha radically because the Biased Sampler is doing the heavy lifting.
+    # This prevents the "Probability Shift" where the model thinks everyone is a hacker.
+    alpha_weights = torch.tensor([1.0, 1.5]).to(device) 
+    criterion = FocalLoss(alpha=alpha_weights, gamma=2.0)
+
+    # Learning Rate Scheduler: Reduces LR when loss plateaus
+    scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=2)
 
     # G. Training Loop
-    print("\nStep 5: Starting Hyper-Elite Training (Mini-Batch)...")
+    print("\nStep 6: Starting Hyper-Elite Training (Mini-Batch)...")
     model.train()
-    for epoch in range(20): # 20 Epochs for better convergence
+    for epoch in range(20): 
         total_loss = 0
         for i, batch in enumerate(loader):
             batch = batch.to(device)
@@ -153,20 +192,37 @@ if __name__ == '__main__':
             # Loss is only calculated for target nodes in the current batch
             loss = criterion(out[:batch.batch_size], batch.y[:batch.batch_size])
             loss.backward()
+            
+            # Gradient Clipping: Prevents exploding gradients during "surprising" batches
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=1.0)
+            
             optimizer.step()
             total_loss += loss.item()
             
-            if i % 200 == 0:
+            if i % 100 == 0:
                 print(f"Epoch {epoch} | Batch {i} | Loss: {loss.item():.4f}")
+        
+        avg_loss = total_loss / len(loader)
+        scheduler.step(avg_loss)
+        print(f"Epoch {epoch} Completed | Avg Loss: {avg_loss:.4f} | LR: {optimizer.param_groups[0]['lr']}")
 
     # H. Final Evaluation
-    print("\nStep 6: Running Final Evaluation & Generating Report...")
+    print("\nStep 7: Running Final Evaluation & Generating Report...")
     model.eval()
     y_true_list = []
     y_prob_list = []
 
+    # Use a standard loader for evaluation to get unbiased metrics
+    eval_loader = NeighborLoader(
+        data,
+        num_neighbors=[15, 10, 5],
+        batch_size=4096,
+        shuffle=False,
+        num_workers=0
+    )
+
     with torch.no_grad():
-        for i, batch in enumerate(loader):
+        for i, batch in enumerate(eval_loader):
             batch = batch.to(device)
             out = model(batch.x, batch.edge_index)
             probs = F.softmax(out[:batch.batch_size], dim=1)
@@ -177,13 +233,30 @@ if __name__ == '__main__':
     y_true_all = np.concatenate(y_true_list)
     y_prob_all = np.concatenate(y_prob_list)
 
-    # Optimizng threshold for F1 score
+    # 1. Analyze the Probability Distribution
+    # This helps us see if Focal Loss is pushing the baseline too high
+    print("\n--- Probability Distribution ---")
+    print(f"Min Prob:  {y_prob_all.min():.4f}")
+    print(f"Max Prob:  {y_prob_all.max():.4f}")
+    print(f"Mean Prob: {y_prob_all.mean():.4f}")
+
+    # 2. Automated Threshold Selection (F1 Optimization)
     precisions, recalls, thresholds = precision_recall_curve(y_true_all, y_prob_all)
     f1_scores = 2 * (precisions * recalls) / (precisions + recalls + 1e-10)
     best_idx = np.argmax(f1_scores)
     best_threshold = thresholds[best_idx] if best_idx < len(thresholds) else 0.5
     
     print(f"\n[OPTIMIZATION] Best Threshold for maximum F1: {best_threshold:.4f}")
+
+    # 3. Manual Threshold Options (Business Logic)
+    # We print a menu so the user can see the trade-offs at different confidence levels
+    from sklearn.metrics import recall_score, precision_score
+    print("\n--- Business Logic Threshold Options ---")
+    for t in [0.50, 0.70, 0.80, 0.90, 0.95]:
+        temp_preds = (y_prob_all >= t).astype(int)
+        rec = recall_score(y_true_all, temp_preds, zero_division=0)
+        prec = precision_score(y_true_all, temp_preds, zero_division=0)
+        print(f"Threshold > {t:.2f} | Precision: {prec:.4f} | Recall: {rec:.4f}")
     
     y_pred_all = (y_prob_all >= best_threshold).astype(int)
 

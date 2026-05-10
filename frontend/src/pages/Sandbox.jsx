@@ -9,7 +9,8 @@ const DEFAULT_TARGET = {
   sent: 1000,
   received: 5000,
   trades_out: 2,
-  trades_in: 5
+  trades_in: 5,
+  velocity: 3600
 };
 
 const HACKER_TEMPLATE = {
@@ -222,6 +223,20 @@ export default function Sandbox() {
                   value={target.trades_in} onChange={e => updateTarget('trades_in', e.target.value)}
                   className="w-full h-1 bg-surface-container-high rounded-full appearance-none outline-none accent-primary"
                 />
+              </div>
+
+              {/* Velocity Slider */}
+              <div className="flex flex-col gap-2">
+                <div className="flex justify-between items-center">
+                  <label className="font-data-mono text-sm text-on-surface">Trade Velocity (Secs)</label>
+                  <span className="font-data-mono text-primary">{target.velocity}s</span>
+                </div>
+                <input 
+                  type="range" min="1" max="3600" step="1"
+                  value={target.velocity} onChange={e => updateTarget('velocity', e.target.value)}
+                  className="w-full h-1 bg-surface-container-high rounded-full appearance-none outline-none accent-primary"
+                />
+                <span className="text-[10px] text-on-surface-variant italic">Left = Fast (Script), Right = Slow (Human)</span>
               </div>
             </div>
 
