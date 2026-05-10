@@ -1,79 +1,64 @@
-# Deployment Guide: Aegis GNN Fraud Detection
+# Deployment Guide: Aegis GNN Fraud Detection (GCP + Vercel)
 
-This guide explains how to deploy your GNN-powered fraud detection system using a **Serverless/PaaS** architecture:
-- **Backend (FastAPI):** Deployed on **Render** (Web Service).
-- **Frontend (React/Vite):** Deployed on **Vercel**.
-
----
-
-## 1. Backend Deployment (Render)
-
-Render will host your FastAPI server and serve the pre-computed GNN results.
-
-### Step A: Create `requirements.txt`
-Ensure you have a `requirements.txt` in your root folder with these dependencies:
-```text
-fastapi
-uvicorn
-torch
-torch-geometric
-pydantic
-pandas
-numpy
-```
-
-### Step B: Setup on Render
-1.  Go to [Render.com](https://render.com/) and log in.
-2.  Click **New +** > **Web Service**.
-3.  Connect your GitHub repository.
-4.  **Configure the service:**
-    *   **Name:** `aegis-api`
-    *   **Environment:** `Python 3`
-    *   **Build Command:** `pip install -r requirements.txt`
-    *   **Start Command:** `uvicorn api.server:app --host 0.0.0.0 --port $PORT`
-5.  **Environment Variables:**
-    *   Click **Advanced** > **Add Environment Variable**.
-    *   Key: `PYTHON_VERSION` | Value: `3.10.x` (or your local version).
+This guide explains how to deploy your high-scale GNN ensemble system:
+- **Backend (FastAPI):** Google Cloud Run (Containerized).
+- **Frontend (React/Vite):** Vercel.
 
 ---
 
-## 2. Frontend Deployment (Vercel)
+## 1. Backend: Google Cloud Run
+Cloud Run is perfect for this because it handles containerized scaling automatically.
 
-Vercel is optimized for React/Vite apps.
+### Step A: Preparation
+Ensure your `requirements.txt` includes `xgboost`, `scikit-learn`, and `joblib`. (Already updated).
 
-### Step A: Update API URL
-In your React code (likely `frontend/src/App.jsx` or a config file), update the base URL to point to your new Render URL:
+### Step B: Deploy to GCloud
+Run these commands from your root directory:
+
+1. **Build and Submit to Artifact Registry:**
+   ```powershell
+   gcloud builds submit --tag gcr.io/[PROJECT-ID]/aegis-api
+   ```
+   *(Replace `[PROJECT-ID]` with your actual GCP project ID)*
+
+2. **Deploy to Cloud Run:**
+   ```powershell
+   gcloud run deploy aegis-api --image gcr.io/[PROJECT-ID]/aegis-api --platform managed --allow-unauthenticated --memory 4Gi
+   ```
+   *Note: We request 4Gi memory to handle the model loading.*
+
+3. **Get your URL**: Once deployed, GCP will give you a Service URL like `https://aegis-api-xyz.a.run.app`.
+
+---
+
+## 2. Frontend: Vercel
+
+### Step A: Update Config
+Update `frontend/src/config.js` to point to your Cloud Run URL:
 ```javascript
-// Example:
-const API_BASE_URL = "https://aegis-api.onrender.com"; 
+export const API_URL = "https://aegis-api-xyz.a.run.app/api";
 ```
 
-### Step B: Setup on Vercel
-1.  Go to [Vercel.com](https://vercel.com/) and log in.
-2.  Click **Add New** > **Project**.
-3.  Import your GitHub repository.
-4.  **Edit Project Settings:**
-    *   **Root Directory:** Select `frontend/`.
-    *   **Framework Preset:** `Vite`.
-    *   **Build Command:** `npm run build`.
-    *   **Output Directory:** `dist`.
-5.  Click **Deploy**.
+### Step B: Deploy
+1. Install Vercel CLI: `npm i -g vercel`
+2. Run deployment from the root:
+   ```powershell
+   vercel
+   ```
+3. When prompted:
+   - **Link to existing project?** No
+   - **Project name?** `aegis-frontend`
+   - **Root directory?** `frontend/`
+   - **Framework?** `Vite`
 
 ---
 
-## 3. Post-Deployment Checklist
-
-1.  **CORS Settings:** Ensure `api/server.py` allows your Vercel URL:
-    ```python
-    app.add_middleware(
-        CORSMiddleware,
-        allow_origins=["https://your-app-name.vercel.app"], 
-        allow_methods=["*"],
-        allow_headers=["*"],
-    )
-    ```
-2.  **Model Weights:** Verify `hyper_elite_medium_model.pth` is in your GitHub repo, as Render needs it to initialize the API.
-3.  **Data Path:** The API looks for `data/players.json.gz`. Ensure the `data/` folder was pushed to GitHub.
+## 3. Production Weights & Data
+For the project to be "Live," ensure these files are included in your container:
+- `hyper_elite_medium_model.pth` (GNN Weights)
+- `xgboost_ensemble_model.pkl` (Ensemble Sniper)
+- `threshold.txt` (Optimized Decision Boundary)
+- `data/` folder (Pre-computed JSON results)
 
 ---
-**Your app is now multi-cloud serverless!** 🚀
+**Your enterprise-grade fraud detection system is now live!** 🚀
