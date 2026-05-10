@@ -35,7 +35,7 @@ export default function GraphView() {
         });
       }
     };
-    
+
     handleResize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -52,13 +52,13 @@ export default function GraphView() {
     const isHighRisk = risk > 0.8;
     const isMediumRisk = risk > 0.6;
     const isLowRisk = risk > 0.4;
-    
-    const color = isHighRisk ? '#f87171' : 
-                  isMediumRisk ? '#fbbf24' : 
-                  isLowRisk ? '#6366f1' : '#34d399';
-    
+
+    const color = isHighRisk ? '#f87171' :
+      isMediumRisk ? '#fbbf24' :
+        isLowRisk ? '#6366f1' : '#34d399';
+
     const size = isHighRisk ? 6 : 4;
-    
+
     // Draw glow for high risk
     if (isHighRisk || isMediumRisk) {
       ctx.beginPath();
@@ -66,16 +66,16 @@ export default function GraphView() {
       ctx.fillStyle = isHighRisk ? 'rgba(248, 113, 113, 0.2)' : 'rgba(251, 191, 36, 0.15)';
       ctx.fill();
     }
-    
+
     ctx.beginPath();
     ctx.arc(node.x, node.y, size, 0, 2 * Math.PI, false);
     ctx.fillStyle = color;
     ctx.fill();
-    
+
     // Optional label on high zoom
     if (globalScale > 2 && isHighRisk) {
       const label = node.id;
-      const fontSize = 12/globalScale;
+      const fontSize = 12 / globalScale;
       ctx.font = `${fontSize}px Sans-Serif`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';

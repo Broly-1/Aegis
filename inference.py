@@ -211,7 +211,11 @@ def run_inference():
     with open('data/players.json', 'w', encoding='utf-8') as f:
         json.dump(players_data[:5000], f)
 
-    fraud_edges_df = df[df['Is_Fraudulent_Trade'] == 1].head(2000)
+    # Build transaction circles (stars) around top fraudulent senders
+    fraud_df = df[df['Is_Fraudulent_Trade'] == 1]
+    top_senders = fraud_df['Sender_Player_ID'].value_counts().head(15).index
+    fraud_edges_df = fraud_df[fraud_df['Sender_Player_ID'].isin(top_senders)].groupby('Sender_Player_ID').head(50)
+    
     graph_nodes = set()
     graph_edges = []
     for _, row in fraud_edges_df.iterrows():
