@@ -27,15 +27,21 @@ class HyperEliteSAGE(torch.nn.Module):
         self.conv3 = SAGEConv(hidden_channels, out_channels)
 
     def forward(self, x, edge_index):
-        x = self.conv1(x, edge_index)
-        x = self.bn1(x)
-        x = F.relu(x)
-        x = F.dropout(x, p=0.3, training=self.training)
-        x = self.conv2(x, edge_index)
-        x = self.bn2(x)
-        x = F.relu(x)
-        x = self.conv3(x, edge_index)
-        return x
+        # Layer 1
+        h1 = self.conv1(x, edge_index)
+        h1 = self.bn1(h1)
+        h1 = F.relu(h1)
+        h1 = F.dropout(h1, p=0.3, training=self.training)
+        
+        # Layer 2 with Skip Connection (Matches training logic)
+        h2 = self.conv2(h1, edge_index)
+        h2 = self.bn2(h2)
+        h2 = F.relu(h2)
+        h2 = h2 + h1 
+        
+        # Layer 3 (Output)
+        out = self.conv3(h2, edge_index)
+        return out
 
 
 def run_inference():

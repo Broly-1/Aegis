@@ -3,7 +3,7 @@ import { ShieldAlert, ShieldCheck, Zap, Activity } from 'lucide-react';
 import ForceGraph2D from 'react-force-graph-2d';
 import './Sandbox.css';
 
-const API = import.meta.env.VITE_API_URL || 'https://aegis-api-762161152188.us-central1.run.app/api';
+import { API_URL as API } from '../config';
 
 const DEFAULT_TARGET = {
   sent: 1000,

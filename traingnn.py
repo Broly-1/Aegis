@@ -35,19 +35,21 @@ class HyperEliteSAGE(torch.nn.Module):
 
     def forward(self, x, edge_index):
         # Layer 1
-        x = self.conv1(x, edge_index)
-        x = self.bn1(x)
-        x = F.relu(x)
-        x = F.dropout(x, p=0.3, training=self.training)
+        h1 = self.conv1(x, edge_index)
+        h1 = self.bn1(h1)
+        h1 = F.relu(h1)
+        h1 = F.dropout(h1, p=0.3, training=self.training)
         
-        # Layer 2
-        x = self.conv2(x, edge_index)
-        x = self.bn2(x)
-        x = F.relu(x)
+        # Layer 2 with Skip Connection
+        h2 = self.conv2(h1, edge_index)
+        h2 = self.bn2(h2)
+        h2 = F.relu(h2)
+        # Add the input of layer 2 to its output to preserve signal
+        h2 = h2 + h1 
         
         # Layer 3 (Output)
-        x = self.conv3(x, edge_index)
-        return x
+        out = self.conv3(h2, edge_index)
+        return out
 
 # --- 2. EXECUTION BLOCK (The Windows Multiprocessing Fix) ---
 if __name__ == '__main__':
@@ -120,7 +122,7 @@ if __name__ == '__main__':
     # Optimized for 32GB RAM: Batch Size 4096 with 4 Workers
     loader = NeighborLoader(
         data,
-        num_neighbors=[25, 15], # Samples 1st and 2nd hop partners
+        num_neighbors=[15, 10, 5], # Samples 1st and 2nd hop partners
         batch_size=4096,
         shuffle=True,
         num_workers=0,
@@ -141,7 +143,7 @@ if __name__ == '__main__':
     # G. Training Loop
     print("\nStep 5: Starting Hyper-Elite Training (Mini-Batch)...")
     model.train()
-    for epoch in range(10): # 10 Epochs for better convergence
+    for epoch in range(20): # 20 Epochs for better convergence
         total_loss = 0
         for i, batch in enumerate(loader):
             batch = batch.to(device)

@@ -8,7 +8,7 @@ import {
 } from 'recharts';
 import './Analytics.css';
 
-const API = import.meta.env.VITE_API_URL || 'https://aegis-api-762161152188.us-central1.run.app/api';
+import { API_URL as API } from '../config';
 
 const COLORS = ['#6366f1', '#22d3ee', '#34d399', '#fbbf24', '#f87171', '#a78bfa', '#fb7185'];
 

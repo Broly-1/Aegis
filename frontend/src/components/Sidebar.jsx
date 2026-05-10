@@ -1,5 +1,6 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { LayoutDashboard, Users, Network, ShieldAlert, BarChart3, Zap } from 'lucide-react';
+import { LayoutDashboard, Users, Network, ShieldAlert, BarChart3, Zap, Server } from 'lucide-react';
+import { getApiEnv, setApiEnv } from '../utils/env';
 import './Sidebar.css';
 
 const navItems = [

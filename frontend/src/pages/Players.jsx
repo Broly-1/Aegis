@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { Search, ChevronLeft, ChevronRight, ArrowUpDown } from 'lucide-react';
 import './Players.css';
 
-const API = import.meta.env.VITE_API_URL || 'https://aegis-api-762161152188.us-central1.run.app/api';
+import { API_URL as API } from '../config';
 
 function formatCurrency(n) {
   if (n >= 1_000_000_000) return '$' + (n / 1_000_000_000).toFixed(1) + 'B';
