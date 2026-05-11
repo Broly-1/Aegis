@@ -13,9 +13,10 @@ The project is structured into three main phases: **Data Preparation & AI Traini
   This is the core AI training script. 
   1. It loads the cleaned dataset and groups transactions by player to engineer node features (Total Sent, Total Received, Trade Counts, and Sent/Received Ratio).
   2. It builds an adjacency matrix (`edge_index`) connecting players who traded with each other.
-  3. It defines the `HyperEliteSAGE` model—a 3-layer GraphSAGE (Graph Sample and Aggregate) neural network.
-  4. It uses a heavily weighted `CrossEntropyLoss` (1:5 ratio) to handle the extreme class imbalance (millions of safe players vs. hundreds of hackers).
-  5. It outputs the trained weights to `hyper_elite_medium_model.pth`.
+  3. It defines the `HyperEliteSAGE` model, a 2-layer GraphSAGE with batch norm, skip connection, and root feature injection to avoid oversmoothing.
+  4. It uses biased neighbor sampling plus `FocalLoss` to handle the extreme class imbalance (millions of safe players vs. hundreds of hackers).
+  5. It logs per-epoch loss and metrics (accuracy, precision, recall, F1) and saves charts + reports into `reports/`.
+  6. It outputs the trained weights to `hyper_elite_medium_model.pth` and an optimized threshold in `threshold.txt`.
 
 ### 2. Inference & API Serving
 - **`inference.py` (Data Pipeline)**

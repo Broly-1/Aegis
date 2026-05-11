@@ -1,12 +1,101 @@
+import os
+import json
 import pandas as pd
 import numpy as np
 import torch
 import torch.nn.functional as F
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 from torch_geometric.data import Data
 from torch_geometric.loader import NeighborLoader
 from torch_geometric.nn import SAGEConv, BatchNorm
 from torch_geometric.utils import to_scipy_sparse_matrix
-from sklearn.metrics import classification_report, precision_recall_curve
+from sklearn.metrics import (
+    classification_report,
+    precision_recall_curve,
+    confusion_matrix,
+    ConfusionMatrixDisplay,
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+)
+
+
+def ensure_dir(path):
+    os.makedirs(path, exist_ok=True)
+
+
+def save_json(path, payload):
+    with open(path, 'w', encoding='utf-8') as f:
+        json.dump(payload, f, indent=2)
+
+
+def plot_training_history(history, reports_dir):
+    if not history:
+        return
+
+    epochs = [h['epoch'] for h in history]
+    losses = [h['loss'] for h in history]
+
+    fig, ax = plt.subplots(figsize=(7, 4))
+    ax.plot(epochs, losses, marker='o', label='Loss')
+    ax.set_title('Training Loss by Epoch')
+    ax.set_xlabel('Epoch')
+    ax.set_ylabel('Loss')
+    ax.grid(True, alpha=0.2)
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(os.path.join(reports_dir, 'training_loss.png'), dpi=160)
+    plt.close(fig)
+
+    metric_keys = ['accuracy', 'precision', 'recall', 'f1_score']
+    available = [k for k in metric_keys if all(h.get(k) is not None for h in history)]
+    if not available:
+        return
+
+    fig, ax = plt.subplots(figsize=(7, 4))
+    for key in available:
+        ax.plot(epochs, [h[key] for h in history], marker='o', label=key.replace('_', ' ').title())
+    ax.set_title('Training Metrics by Epoch')
+    ax.set_xlabel('Epoch')
+    ax.set_ylabel('Score (%)')
+    ax.set_ylim(0, 100)
+    ax.grid(True, alpha=0.2)
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(os.path.join(reports_dir, 'training_metrics.png'), dpi=160)
+    plt.close(fig)
+
+
+def evaluate_loader(model, loader, device, threshold=0.5):
+    model.eval()
+    y_true_list = []
+    y_prob_list = []
+
+    with torch.no_grad():
+        for batch in loader:
+            batch = batch.to(device)
+            out = model(batch.x, batch.edge_index)
+            probs = F.softmax(out[:batch.batch_size], dim=1)[:, 1]
+            y_true_list.append(batch.y[:batch.batch_size].cpu().numpy())
+            y_prob_list.append(probs.cpu().numpy())
+
+    if not y_true_list:
+        return {}, None, None
+
+    y_true_all = np.concatenate(y_true_list)
+    y_prob_all = np.concatenate(y_prob_list)
+    y_pred_all = (y_prob_all >= threshold).astype(int)
+
+    metrics = {
+        'accuracy': accuracy_score(y_true_all, y_pred_all) * 100.0,
+        'precision': precision_score(y_true_all, y_pred_all, zero_division=0) * 100.0,
+        'recall': recall_score(y_true_all, y_pred_all, zero_division=0) * 100.0,
+        'f1_score': f1_score(y_true_all, y_pred_all, zero_division=0) * 100.0,
+    }
+    return metrics, y_true_all, y_prob_all
 
 # --- FOCAL LOSS IMPLEMENTATION ---
 class FocalLoss(torch.nn.Module):
@@ -59,6 +148,13 @@ class HyperEliteSAGE(torch.nn.Module):
 
 # --- 2. EXECUTION BLOCK (The Windows Multiprocessing Fix) ---
 if __name__ == '__main__':
+    reports_dir = os.path.join(os.path.dirname(__file__), 'reports')
+    ensure_dir(reports_dir)
+    num_epochs = int(os.getenv('EPOCHS', '20'))
+    eval_sample_size = int(os.getenv('EVAL_SAMPLE_SIZE', '20000'))
+    sample_predictions_size = int(os.getenv('SAMPLE_PREDICTIONS', '200'))
+    torch.manual_seed(42)
+
     # A. Load Dataset
     print("Step 1: Loading Full Dataset (32M Transactions)...")
     df = pd.read_csv('MMORPG_Medium_Cleaned.csv')
@@ -164,6 +260,21 @@ if __name__ == '__main__':
         persistent_workers=False
     )
 
+    eval_sample_size = max(0, min(eval_sample_size, balanced_input_nodes.numel()))
+    eval_sample_nodes = None
+    eval_loader = None
+    if eval_sample_size > 0:
+        sample_perm = torch.randperm(balanced_input_nodes.numel())[:eval_sample_size]
+        eval_sample_nodes = balanced_input_nodes[sample_perm]
+        eval_loader = NeighborLoader(
+            data,
+            num_neighbors=[15, 10, 5],
+            batch_size=4096,
+            input_nodes=eval_sample_nodes,
+            shuffle=False,
+            num_workers=0
+        )
+
     # F. Model, Optimizer, and Loss
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     model = HyperEliteSAGE(in_channels=len(features_cols), hidden_channels=128, out_channels=2).to(device)
@@ -182,7 +293,8 @@ if __name__ == '__main__':
     # G. Training Loop
     print("\nStep 6: Starting Hyper-Elite Training (Mini-Batch)...")
     model.train()
-    for epoch in range(20): 
+    training_history = []
+    for epoch in range(num_epochs): 
         total_loss = 0
         for i, batch in enumerate(loader):
             batch = batch.to(device)
@@ -204,13 +316,44 @@ if __name__ == '__main__':
         
         avg_loss = total_loss / len(loader)
         scheduler.step(avg_loss)
-        print(f"Epoch {epoch} Completed | Avg Loss: {avg_loss:.4f} | LR: {optimizer.param_groups[0]['lr']}")
+        metrics = {}
+        if eval_loader is not None:
+            metrics, _, _ = evaluate_loader(model, eval_loader, device, threshold=0.5)
+            model.train()
+
+        training_history.append({
+            'epoch': epoch + 1,
+            'loss': avg_loss,
+            'lr': optimizer.param_groups[0]['lr'],
+            'accuracy': metrics.get('accuracy'),
+            'precision': metrics.get('precision'),
+            'recall': metrics.get('recall'),
+            'f1_score': metrics.get('f1_score'),
+        })
+
+        if metrics:
+            print(
+                f"Epoch {epoch} Completed | Avg Loss: {avg_loss:.4f} | "
+                f"Acc: {metrics['accuracy']:.2f}% | "
+                f"Prec: {metrics['precision']:.2f}% | "
+                f"Recall: {metrics['recall']:.2f}% | "
+                f"F1: {metrics['f1_score']:.2f}% | "
+                f"LR: {optimizer.param_groups[0]['lr']}"
+            )
+        else:
+            print(f"Epoch {epoch} Completed | Avg Loss: {avg_loss:.4f} | LR: {optimizer.param_groups[0]['lr']}")
+
+    if training_history:
+        save_json(os.path.join(reports_dir, 'training_history.json'), training_history)
+        pd.DataFrame(training_history).to_csv(os.path.join(reports_dir, 'training_history.csv'), index=False)
+        plot_training_history(training_history, reports_dir)
 
     # H. Final Evaluation
     print("\nStep 7: Running Final Evaluation & Generating Report...")
     model.eval()
     y_true_list = []
     y_prob_list = []
+    node_id_list = []
 
     # Use a standard loader for evaluation to get unbiased metrics
     eval_loader = NeighborLoader(
@@ -229,9 +372,11 @@ if __name__ == '__main__':
             
             y_true_list.append(batch.y[:batch.batch_size].cpu().numpy())
             y_prob_list.append(probs[:, 1].cpu().numpy())
+            node_id_list.append(batch.n_id[:batch.batch_size].cpu().numpy())
 
     y_true_all = np.concatenate(y_true_list)
     y_prob_all = np.concatenate(y_prob_list)
+    node_ids_all = np.concatenate(node_id_list) if node_id_list else None
 
     # 1. Analyze the Probability Distribution
     # This helps us see if Focal Loss is pushing the baseline too high
@@ -242,9 +387,11 @@ if __name__ == '__main__':
 
     # 2. Automated Threshold Selection (F1 Optimization)
     precisions, recalls, thresholds = precision_recall_curve(y_true_all, y_prob_all)
-    f1_scores = 2 * (precisions * recalls) / (precisions + recalls + 1e-10)
-    best_idx = np.argmax(f1_scores)
-    best_threshold = thresholds[best_idx] if best_idx < len(thresholds) else 0.5
+    precisions_t = precisions[1:]
+    recalls_t = recalls[1:]
+    f1_scores = (2 * (precisions_t * recalls_t) / (precisions_t + recalls_t + 1e-10)) if len(thresholds) else np.array([])
+    best_idx = int(np.argmax(f1_scores)) if len(f1_scores) else -1
+    best_threshold = thresholds[best_idx] if best_idx >= 0 else 0.5
     
     print(f"\n[OPTIMIZATION] Best Threshold for maximum F1: {best_threshold:.4f}")
 
@@ -260,8 +407,72 @@ if __name__ == '__main__':
     
     y_pred_all = (y_prob_all >= best_threshold).astype(int)
 
+    final_metrics = {
+        'accuracy': accuracy_score(y_true_all, y_pred_all) * 100.0,
+        'precision': precision_score(y_true_all, y_pred_all, zero_division=0) * 100.0,
+        'recall': recall_score(y_true_all, y_pred_all, zero_division=0) * 100.0,
+        'f1_score': f1_score(y_true_all, y_pred_all, zero_division=0) * 100.0,
+        'best_threshold': float(best_threshold),
+    }
+    save_json(os.path.join(reports_dir, 'final_metrics.json'), final_metrics)
+
     print("\n--- Final GraphSAGE Report (Medium Dataset) ---")
-    print(classification_report(y_true_all, y_pred_all, target_names=['Safe', 'Hacker'], zero_division=0))
+    report_text = classification_report(y_true_all, y_pred_all, target_names=['Safe', 'Hacker'], zero_division=0)
+    print(report_text)
+    report_dict = classification_report(
+        y_true_all,
+        y_pred_all,
+        target_names=['Safe', 'Hacker'],
+        zero_division=0,
+        output_dict=True
+    )
+    save_json(os.path.join(reports_dir, 'classification_report.json'), report_dict)
+    with open(os.path.join(reports_dir, 'classification_report.txt'), 'w', encoding='utf-8') as f:
+        f.write(report_text)
+
+    pr_curve_rows = []
+    for i, t in enumerate(thresholds):
+        pr_curve_rows.append({
+            'threshold': float(t),
+            'precision': float(precisions_t[i]) if i < len(precisions_t) else None,
+            'recall': float(recalls_t[i]) if i < len(recalls_t) else None,
+            'f1_score': float(f1_scores[i]) if i < len(f1_scores) else None,
+        })
+    if pr_curve_rows:
+        pd.DataFrame(pr_curve_rows).to_csv(os.path.join(reports_dir, 'precision_recall_curve.csv'), index=False)
+
+    fig, ax = plt.subplots(figsize=(6, 4))
+    ax.plot(recalls, precisions, color='#1f77b4')
+    ax.set_title('Precision-Recall Curve')
+    ax.set_xlabel('Recall')
+    ax.set_ylabel('Precision')
+    ax.grid(True, alpha=0.2)
+    fig.tight_layout()
+    fig.savefig(os.path.join(reports_dir, 'precision_recall_curve.png'), dpi=160)
+    plt.close(fig)
+
+    cm = confusion_matrix(y_true_all, y_pred_all, labels=[0, 1])
+    disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=['Safe', 'Hacker'])
+    fig, ax = plt.subplots(figsize=(5, 4))
+    disp.plot(ax=ax, cmap='Blues', colorbar=False)
+    ax.set_title('Confusion Matrix')
+    fig.tight_layout()
+    fig.savefig(os.path.join(reports_dir, 'confusion_matrix.png'), dpi=160)
+    plt.close(fig)
+
+    if node_ids_all is not None and len(node_ids_all) == len(y_true_all):
+        player_ids = np.array(unique_players_list)[node_ids_all]
+        sample_size = max(0, min(sample_predictions_size, len(player_ids)))
+        if sample_size > 0:
+            rng = np.random.default_rng(42)
+            sample_idx = rng.choice(len(player_ids), size=sample_size, replace=False)
+            sample_df = pd.DataFrame({
+                'player_id': player_ids[sample_idx],
+                'true_label': y_true_all[sample_idx],
+                'predicted_prob': y_prob_all[sample_idx],
+                'predicted_label': y_pred_all[sample_idx],
+            })
+            sample_df.to_csv(os.path.join(reports_dir, 'sample_predictions.csv'), index=False)
 
     # I. Save Model State and Threshold
     torch.save(model.state_dict(), 'hyper_elite_medium_model.pth')
