@@ -7,7 +7,7 @@ Detecting circular currency laundering in a 32M-transaction MMORPG economy using
 ![FastAPI](https://img.shields.io/badge/FastAPI-Backend-009688?style=flat-square&logo=fastapi&logoColor=white)
 ![React](https://img.shields.io/badge/React-Vite_Dashboard-61DAFB?style=flat-square&logo=react&logoColor=black)
 
-Artificial Intelligence semester project, FAST NUCES (Spring 2026).
+**[▶ Live dashboard](https://aegis-six-mauve.vercel.app)** · Artificial Intelligence semester project, FAST NUCES (Spring 2026)
 
 ---
 
